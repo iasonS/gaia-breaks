@@ -2,18 +2,35 @@
 precision highp float;
 in vec2 vUv; out vec4 o;
 uniform float uTime;
+uniform float uProgress;
 // __COMMON__
 void main(){
-  vec2 uv = vUv;
+  // gentle forward drift toward the gate
+  float adv = 0.12*uProgress;
+  vec2 uv = (vUv - vec2(0.5,0.5)) * (1.0 - adv) + vec2(0.5,0.5);
+  uv.y += 0.003*sin(uTime*0.1);
+
   vec3 col = mix(vec3(0.06,0.13,0.20), vec3(0.55,0.50,0.45), pow(uv.y,2.0));
+
+  // soft drifting mist
+  float mist = noise(uv*vec2(4.0,2.0)+vec2(uTime*0.02,0.0))*0.06;
+  col += vec3(0.3,0.34,0.4)*mist;
+
   float moon = smoothstep(0.06,0.0, distance(uv, vec2(0.62,0.78)));
   col += vec3(1.0,0.96,0.88)*moon;
-  if (uv.y < 0.42){ // water
-    float ripple = sin((uv.y*60.0) + noise(uv*8.0+uTime*0.1)*4.0)*0.5+0.5;
-    col = mix(vec3(0.04,0.08,0.11), col, 0.5) + ripple*0.03;
+
+  if (uv.y < 0.42){ // water: animated ripples + shimmering moon reflection
+    float ripple = sin(uv.y*70.0 + noise(uv*8.0+uTime*0.25)*5.0 + uTime*0.6)*0.5+0.5;
+    float refl = smoothstep(0.10,0.0, abs(uv.x-0.62)) * smoothstep(0.42,0.0,uv.y);
+    col = mix(vec3(0.04,0.08,0.11), col, 0.5) + ripple*0.04;
+    col += vec3(0.8,0.78,0.7)*refl*ripple*0.25;
   }
-  // two pillars (the gate) as dark vertical bands near center
-  float g = step(0.02, abs(uv.x-0.44)) * step(0.02, abs(uv.x-0.56));
-  if (uv.y>0.30 && uv.y<0.62) col *= mix(0.1,1.0,g);
+
+  // torii-like gate: two posts + a lintel
+  float post = step(0.02, abs(uv.x-0.44)) * step(0.02, abs(uv.x-0.56));
+  float lintel = step(abs(uv.y-0.60),0.02) * step(abs(uv.x-0.5),0.10);
+  if (uv.y>0.30 && uv.y<0.60) col *= mix(0.1,1.0,post);
+  if (lintel>0.5) col *= 0.1;
+
   o = vec4(col,1.0);
 }

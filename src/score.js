@@ -27,10 +27,29 @@ export function movementAt(t, order, transitions) {
   return { from: order[index], to: order[index], blend: 0 };
 }
 
+/** Time window [start,end] for each movement (includes its entering crossfade). */
+export function movementWindows(order, transitions, duration) {
+  const w = [];
+  for (let i = 0; i < order.length; i++) {
+    const start = i === 0 ? 0 : transitions[i - 1].at;
+    const end = i < transitions.length ? (transitions[i].at + transitions[i].dur) : duration;
+    w.push({ name: order[i], start, end });
+  }
+  return w;
+}
+
+/** Normalized 0..1 progress of time t through the named movement's window. */
+export function progressFor(t, name, windows) {
+  const win = windows.find(w => w.name === name);
+  if (!win || win.end <= win.start) return 0;
+  return Math.max(0, Math.min(1, (t - win.start) / (win.end - win.start)));
+}
+
 /** Bundle everything the director needs at time t. */
 export function sampleScore(score, t) {
   const m = movementAt(t, score.order, score.transitions);
   const corruption = sampleCurve(score.corruption, t);
   const ui = score.ui.filter(c => t >= c.show && t < c.hide).map(c => c.id);
-  return { ...m, corruption, ui };
+  const windows = movementWindows(score.order, score.transitions, score.duration || 0);
+  return { ...m, corruption, ui, fromP: progressFor(t, m.from, windows), toP: progressFor(t, m.to, windows) };
 }

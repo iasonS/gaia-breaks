@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sampleCurve, movementAt, sampleScore } from '../src/score.js';
+import { sampleCurve, movementAt, sampleScore, movementWindows, progressFor } from '../src/score.js';
 
 describe('sampleCurve', () => {
   const pts = [{ t: 0, v: 0 }, { t: 10, v: 1 }, { t: 20, v: 0 }];
@@ -28,6 +28,22 @@ describe('movementAt', () => {
     const m = movementAt(102, order, transitions); // 2s into a 4s fade at t=100
     expect(m.from).toBe('colossus'); expect(m.to).toBe('maw');
     expect(m.blend).toBeCloseTo(0.5);
+  });
+});
+
+describe('movementWindows / progressFor', () => {
+  const order = ['colossus', 'maw', 'gate'];
+  const transitions = [{ at: 100, dur: 4 }, { at: 240, dur: 6 }];
+  const windows = movementWindows(order, transitions, 325);
+  it('spans each movement including its entering crossfade', () => {
+    expect(windows[0]).toEqual({ name: 'colossus', start: 0, end: 104 });
+    expect(windows[1]).toEqual({ name: 'maw', start: 100, end: 246 });
+    expect(windows[2]).toEqual({ name: 'gate', start: 240, end: 325 });
+  });
+  it('reports normalized 0..1 progress through a movement, clamped', () => {
+    expect(progressFor(0, 'colossus', windows)).toBe(0);
+    expect(progressFor(52, 'colossus', windows)).toBeCloseTo(0.5);
+    expect(progressFor(999, 'gate', windows)).toBe(1);
   });
 });
 

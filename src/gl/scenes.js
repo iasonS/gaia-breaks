@@ -24,15 +24,18 @@ export function createScenes(renderer) {
     }
   }
 
-  function renderInto(target, name, time) {
-    draw(progs[name], (g, p) => g.uniform1f(uni(p, 'uTime'), time), target);
+  function renderInto(target, name, time, progress) {
+    draw(progs[name], (g, p) => {
+      g.uniform1f(uni(p, 'uTime'), time);
+      g.uniform1f(uni(p, 'uProgress'), progress);
+    }, target);
   }
 
-  // s = { from, to, blend, corruption } from sampleScore
+  // s = { from, to, blend, corruption, fromP, toP } from sampleScore
   function frame(s, time) {
     ensureSize();
-    renderInto(texA, s.from, time);
-    renderInto(texB, s.to, time);
+    renderInto(texA, s.from, time, s.fromP);
+    renderInto(texB, s.to, time, s.toP);
     draw(corruption, (g, p) => {
       g.activeTexture(g.TEXTURE0); g.bindTexture(g.TEXTURE_2D, texA.tex); g.uniform1i(uni(p, 'uA'), 0);
       g.activeTexture(g.TEXTURE1); g.bindTexture(g.TEXTURE_2D, texB.tex); g.uniform1i(uni(p, 'uB'), 1);

@@ -1,6 +1,7 @@
 // Authored score. Transition times + corruption are SEEDED from analysis, then hand-tuned
 // against the track via the dev scrubber. Numbers below are starting points.
 export const score = {
+  duration: 325,
   order: ['colossus', 'maw', 'gate'],
   // colossus->maw on the drop; maw->gate into the soft outro:
   transitions: [
