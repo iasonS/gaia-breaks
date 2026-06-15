@@ -1,0 +1,32 @@
+#version 300 es
+precision highp float;
+in vec2 vUv; out vec4 o;
+uniform sampler2D uA;
+uniform sampler2D uB;
+uniform float uBlend;       // 0..1 scene crossfade
+uniform float uCorrupt;     // 0..~1.5 corruption intensity
+uniform float uTime;
+// __COMMON__
+void main(){
+  vec2 uv = vUv;
+  float c = uCorrupt;
+  // horizontal tear/displacement, stronger with corruption
+  float band = step(0.5, noise(vec2(floor(uv.y*40.0), floor(uTime*12.0))));
+  uv.x += (band-0.5) * 0.06 * c;
+  // chromatic split
+  vec2 off = vec2(0.008*c, 0.0);
+  float blend = clamp(uBlend,0.0,1.0);
+  vec3 col;
+  col.r = mix(texture(uA,uv+off).r, texture(uB,uv+off).r, blend);
+  col.g = mix(texture(uA,uv).g,     texture(uB,uv).g,     blend);
+  col.b = mix(texture(uA,uv-off).b, texture(uB,uv-off).b, blend);
+  // ink edge accent (cheap): difference from a small neighbor
+  vec3 n = mix(texture(uA,uv+vec2(0.002)).rgb, texture(uB,uv+vec2(0.002)).rgb, blend);
+  float edge = clamp(length(col-n)*8.0,0.0,1.0);
+  col = mix(col, vec3(0.0), edge*0.5*c);
+  col += vec3(0.48,0.24,1.0) * edge * c; // violet ink
+  // scanlines + grain scale with corruption
+  col *= 1.0 - 0.25*c*step(0.5, fract(uv.y*220.0));
+  col += (hash(uv*vec2(uTime*60.0,1.0))-0.5)*0.10*c;
+  o = vec4(col,1.0);
+}
