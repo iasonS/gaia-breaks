@@ -5,6 +5,8 @@ import { createAudioClock } from './audioClock.js';
 import { sampleScore } from './score.js';
 import { score } from './score-data.js';
 
+const SHOOT = location.search.includes('shoot'); // headless screenshot mode
+
 const canvas = document.getElementById('gl');
 const dpr = Math.min(devicePixelRatio || 1, 2);
 function resize(){ canvas.width = innerWidth * dpr; canvas.height = innerHeight * dpr; }
@@ -16,6 +18,7 @@ const ui = createUI(document.getElementById('ui'));
 const clock = createAudioClock(document.getElementById('track'));
 
 const gate = document.getElementById('gate');
+if (SHOOT) gate.style.display = 'none';
 gate.addEventListener('click', async () => {
   gate.style.display = 'none';
   await clock.play();
@@ -29,10 +32,10 @@ gate.addEventListener('click', async () => {
   requestAnimationFrame(loop);
 })();
 
-// expose for the dev scrubber
+// expose for the dev scrubber / screenshot tool
 window.__gaia = { clock, score, sampleScore };
 
-if (import.meta.env.DEV) {
+if (import.meta.env.DEV && !SHOOT) {
   const { mountScrubber } = await import('./dev/scrubber.js');
   mountScrubber({ clock, score });
 }
