@@ -31,7 +31,8 @@ void main(){
   // spinning accretion ring — tighter, hotter, more turbulent as we fall
   float rIn = 0.17 - 0.02*uProgress, rOut = 0.32 - 0.02*uProgress;
   float ring = smoothstep(rOut,rOut-0.05,r) * smoothstep(rIn,rIn+0.05,r);
-  float swirl = 0.5+0.5*sin(ang*6.0 + uTime*2.5 - r*34.0 + noise(vec2(ang*3.0,uTime*0.4))*3.0);
+  float spin = uTime*(2.5 + 0.7*sin(uTime*0.2));   // ring speed breathes
+  float swirl = 0.5+0.5*sin(ang*6.0 + spin - r*34.0 + noise(vec2(ang*3.0,uTime*0.4))*3.0);
   float hot = 0.5+0.5*sin(ang*3.0 - uTime*1.7);
   vec3 hotCol = mix(vec3(1.0,0.9,0.6), vec3(1.0,0.6,0.9), uProgress*0.6);
   col += mix(vec3(0.9,0.35,0.08), hotCol, swirl) * ring * (1.4+hot+0.8*uProgress);
@@ -40,6 +41,12 @@ void main(){
   float halo = smoothstep(0.5+0.2*uProgress,0.2,r)*0.15*(0.6+0.4*sin(uTime*0.8));
   col += mix(vec3(0.4,0.2,0.7), vec3(0.6,0.2,0.5), uProgress)*halo;
 
-  col *= smoothstep(0.15,0.19,r); // black core
+  // sweeping bright jet raking across the disk
+  float jet = pow(max(0.0, sin(ang - uTime*0.6)), 36.0);
+  col += mix(vec3(1.0,0.8,0.6), vec3(1.0,0.6,0.95), uProgress) * jet * smoothstep(0.46,0.16,r) * (0.5+0.7*uProgress);
+
+  // black core with a lensing wobble (event horizon breathing)
+  float core = 0.165 + 0.012*sin(uTime*1.3) + 0.01*noise(vec2(ang*2.0,uTime*0.5));
+  col *= smoothstep(core,core+0.035,r);
   o = vec4(col, 1.0);
 }

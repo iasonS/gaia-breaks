@@ -25,11 +25,21 @@ void main(){
   mist += noise(uv*vec2(7.0,3.0)+vec2(-uTime*0.015,0.3))*0.04;
   col += vec3(0.3,0.34,0.4)*mist;
 
-  float moon = smoothstep(0.06,0.0, distance(uv, vec2(0.62,0.78)));
-  col += vec3(1.0,0.96,0.88)*moon;
+  float md = distance(uv, vec2(0.62,0.78));
+  col += vec3(1.0,0.96,0.88) * smoothstep(0.06,0.0, md);
+  col += vec3(0.7,0.72,0.62) * smoothstep(0.2,0.0, md) * (0.05 + 0.03*sin(uTime*0.5)); // breathing halo
+
+  // slow-rising spirit lights drifting up over the scene
+  for(int i=0;i<12;i++){
+    float fi=float(i);
+    float t = fract(hash(vec2(fi,21.0)) + uTime*(0.018+0.02*hash(vec2(fi,22.0))));
+    vec2 fp = vec2(fract(hash(vec2(fi,23.0)) + sin(uTime*0.3+fi)*0.02), 0.42 + t*0.42);
+    col += vec3(0.7,0.85,0.8) * smoothstep(0.004,0.0, distance(uv,fp)) * (0.5+0.5*sin(uTime*2.0+fi)) * smoothstep(1.0,0.75,t);
+  }
 
   if (uv.y < 0.42){ // water: animated ripples + shimmering moon reflection
     float ripple = sin(uv.y*70.0 + noise(uv*8.0+uTime*0.25)*5.0 + uTime*0.6)*0.5+0.5;
+    ripple = mix(ripple, 0.5+0.5*sin(uv.x*7.0 - uTime*0.45 + uv.y*12.0), 0.35); // rolling swell
     float refl = smoothstep(0.10,0.0, abs(uv.x-0.62)) * smoothstep(0.42,0.0,uv.y);
     col = mix(vec3(0.04,0.08,0.11), col, 0.5) + ripple*0.04;
     col += vec3(0.8,0.78,0.7)*refl*ripple*0.25;

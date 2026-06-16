@@ -10,6 +10,9 @@ uniform float uTime;
 void main(){
   vec2 uv = vUv;
   float c = uCorrupt;
+  // subtle living-camera breath so the frame never feels locked
+  uv += vec2(sin(uTime*0.27)*0.0016, cos(uTime*0.19)*0.0012);
+  uv += (vec2(noise(vec2(uTime*0.6,3.0)), noise(vec2(uTime*0.5,8.0)))-0.5) * 0.0014;
   // horizontal tear/displacement, stronger with corruption
   float band = step(0.5, noise(vec2(floor(uv.y*40.0), floor(uTime*12.0))));
   uv.x += (band-0.5) * 0.06 * c;

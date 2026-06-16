@@ -56,26 +56,41 @@ void main(){
     col += vec3(1.0,0.5,0.2) * smoothstep(sz,0.0, distance(uv,ap)) * tw * (0.4+0.3*layer);
   }
 
-  // the fallen titan: a colossal broken humanoid (head bowed)
+  // the fallen titan: a colossal broken humanoid (head bowed), swaying as it fails
+  vec2 ps = p;
+  ps.x += sin(uTime*0.35)*0.006 + sin(uTime*0.11)*0.004; // slow unstable sway
+  ps.y += sin(uTime*0.6)*0.003;                          // labored breathing
   float body = 1e9;
-  body = min(body, capsule(p, vec2(0.5,0.50), vec2(0.5,0.16), 0.075)); // torso
-  body = min(body, capsule(p, vec2(0.5,0.55), vec2(0.47,0.60), 0.055));// bowed head/neck
-  body = min(body, capsule(p, vec2(0.5,0.49), vec2(0.33,0.28), 0.04)); // left arm (hanging)
-  body = min(body, capsule(p, vec2(0.5,0.49), vec2(0.66,0.40), 0.04)); // right arm (slack)
-  body = min(body, capsule(p, vec2(0.47,0.18), vec2(0.43,0.0), 0.045));// left leg
-  body = min(body, capsule(p, vec2(0.53,0.18), vec2(0.58,0.0), 0.045));// right leg
+  body = min(body, capsule(ps, vec2(0.5,0.50), vec2(0.5,0.16), 0.075)); // torso
+  body = min(body, capsule(ps, vec2(0.5,0.55), vec2(0.47,0.60), 0.055));// bowed head/neck
+  body = min(body, capsule(ps, vec2(0.5,0.49), vec2(0.33,0.28), 0.04)); // left arm (hanging)
+  body = min(body, capsule(ps, vec2(0.5,0.49), vec2(0.66,0.40), 0.04)); // right arm (slack)
+  body = min(body, capsule(ps, vec2(0.47,0.18), vec2(0.43,0.0), 0.045));// left leg
+  body = min(body, capsule(ps, vec2(0.53,0.18), vec2(0.58,0.0), 0.045));// right leg
   float mask = smoothstep(0.006,0.0, body);
-  mask *= step(noise(p*22.0), 0.93);                       // eroded pitting
+  mask *= step(noise(ps*22.0), 0.93);                      // eroded pitting
   // missing chunks, worsening as the titan dies
-  mask *= 1.0 - (0.4+0.4*uProgress)*smoothstep(0.5,0.82, noise(p*6.0+1.0));
+  mask *= 1.0 - (0.4+0.4*uProgress)*smoothstep(0.5,0.82, noise(ps*6.0+1.0));
   col = mix(col, vec3(0.02,0.015,0.03), mask);
 
   // molten cracks spreading across the body as it dies (grow with progress)
-  float cn = noise(p*16.0 + 2.0);
+  float cn = noise(ps*16.0 + 2.0);
   float crack = smoothstep(0.46,0.5,cn)*smoothstep(0.56,0.52,cn);
-  float cn2 = noise(p*7.0 + uTime*0.03);
+  float cn2 = noise(ps*7.0 + uTime*0.03);
   crack += smoothstep(0.5,0.52,cn2)*smoothstep(0.6,0.55,cn2)*0.7;
   col += vec3(1.0,0.4,0.1) * crack * mask * (0.25 + 1.4*uProgress) * (0.7+0.3*sin(uTime*4.0));
+
+  // rising sparks lifting off the burning titan
+  for(int i=0;i<10;i++){
+    float fi=float(i);
+    float t = fract(hash(vec2(fi,11.0)) + uTime*(0.14+0.10*hash(vec2(fi,12.0))));
+    vec2 sk = vec2(0.42 + 0.16*hash(vec2(fi,13.0)) + sin(uTime*2.0+fi)*0.012, 0.04 + t*0.52);
+    col += vec3(1.0,0.6,0.2) * smoothstep(0.004,0.0, distance(uv,sk)) * (1.0-t) * (0.6+0.4*sin(uTime*6.0+fi));
+  }
+
+  // heat shimmer rising in front of the figure
+  float haze = noise(vec2(uv.x*26.0, uv.y*10.0 - uTime*0.9));
+  col += vec3(0.45,0.18,0.06) * haze * smoothstep(0.45,0.0, abs(uv.x-0.5)) * smoothstep(0.0,0.45,uv.y) * 0.07;
 
   // chunks breaking off and falling away (increase with progress)
   for(int i=0;i<14;i++){
