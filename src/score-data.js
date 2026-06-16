@@ -3,29 +3,40 @@
 export const score = {
   duration: 325,
   order: ['world', 'titan', 'maw', 'gate'],
-  // dead world -> fallen titan -> (the drop) maw -> (the outro) gate
+  // Transition times locked to the track's real energy structure
+  // (see src/dev/analyze-cli.js -> public/score-seed.json):
+  //   ~108s = the drop, ~308s = collapse into the Minecraft ending.
   transitions: [
-    { at: 48, dur: 4 },
-    { at: 104, dur: 4 },
-    { at: 272, dur: 8 },
+    { at: 48, dur: 4 },     // dead world -> fallen titan (authored beat, building dread)
+    { at: 108, dur: 4 },    // titan -> maw : THE DROP (energy 0.42 -> 0.67)
+    { at: 304, dur: 6 },    // maw -> gate : outro collapses into the soft ending
   ],
-  // 0 = clean, ~1 = Storm, >1 = past Storm (the Maw peak):
+  // Corruption tracks the real dynamics: clean intro, full at the drop,
+  // PEAK across the hardest stretch (112-168), a dip in the breakdown
+  // (170-200), moderate outro, healed for the Gate.
   corruption: [
     { t: 0, v: 0.06 },
-    { t: 48, v: 0.12 },
-    { t: 104, v: 0.30 },
-    { t: 112, v: 1.0 },
-    { t: 200, v: 1.5 },    // past Storm at the hardest stretch
-    { t: 270, v: 1.1 },
-    { t: 282, v: 0.05 },   // healed for the Gate
+    { t: 12, v: 0.12 },    // build begins
+    { t: 48, v: 0.20 },    // titan: dread rising
+    { t: 92, v: 0.40 },    // the lift before the drop
+    { t: 108, v: 0.55 },   // the drop hits
+    { t: 112, v: 1.10 },
+    { t: 140, v: 1.50 },   // peak of the hardest stretch
+    { t: 168, v: 1.30 },
+    { t: 174, v: 0.45 },   // the breakdown calms
+    { t: 196, v: 1.00 },   // brief resurgence (192-200)
+    { t: 206, v: 0.60 },   // outro settles
+    { t: 260, v: 0.70 },
+    { t: 300, v: 0.50 },
+    { t: 310, v: 0.05 },   // healed for the Gate / Minecraft ending
     { t: 325, v: 0.0 },
   ],
   ui: [
     { id: 'title', show: 0, hide: 10 },
-    { id: 'world-label', show: 6, hide: 40 },
-    { id: 'titan-label', show: 52, hide: 92 },
-    { id: 'maw-label', show: 114, hide: 150 },
-    { id: 'doomed', show: 160, hide: 240 },
-    { id: 'gate-end', show: 285, hide: 325 },
+    { id: 'world-label', show: 6, hide: 44 },
+    { id: 'titan-label', show: 52, hide: 104 },
+    { id: 'maw-label', show: 112, hide: 150 },
+    { id: 'doomed', show: 130, hide: 200 },
+    { id: 'gate-end', show: 308, hide: 325 },
   ],
 };

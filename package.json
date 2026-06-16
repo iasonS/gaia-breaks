@@ -7,6 +7,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "vitest run",
+    "analyze": "node src/dev/analyze-cli.js",
     "shoot": "node src/dev/shoot.js"
   },
   "devDependencies": {
