@@ -1,5 +1,6 @@
 import common from './shaders/common.glsl?raw';
-import colossus from './shaders/colossus.frag?raw';
+import world from './shaders/world.frag?raw';
+import titan from './shaders/titan.frag?raw';
 import maw from './shaders/maw.frag?raw';
 import gate from './shaders/gate.frag?raw';
 import corruptionSrc from './shaders/corruption.frag?raw';
@@ -9,7 +10,8 @@ const inject = (src) => src.replace('// __COMMON__', common);
 export function createScenes(renderer) {
   const { gl, compile, createTarget, draw, uni } = renderer;
   const progs = {
-    colossus: compile(inject(colossus)),
+    world: compile(inject(world)),
+    titan: compile(inject(titan)),
     maw: compile(inject(maw)),
     gate: compile(inject(gate)),
   };

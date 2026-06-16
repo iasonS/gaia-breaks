@@ -1,5 +1,7 @@
 const ELEMENTS = {
   title:    { html: 'Born to be a star<br><span class="kana">星に生まれて</span>', pos: 'top:24px;left:28px;font-size:22px;' },
+  'world-label': { html: 'THE DEAD WORLD<br><span class="kana">死せる星 / EXTINCT</span>', pos: 'top:34%;left:28px;font-size:18px;color:#b9a3ff;' },
+  'titan-label': { html: 'THE FALLEN TITAN<br><span class="kana">倒れし巨神</span>', pos: 'top:34%;left:28px;font-size:18px;color:#d3b0a0;' },
   'maw-label': { html: 'THE MAW<br><span class="kana">虚空 / BOUNDLESS ABYSS</span>', pos: 'top:34%;left:28px;font-size:18px;color:#c9b3ff;' },
   doomed:   { html: 'YOU ARE DOOMED.', pos: 'bottom:24px;left:28px;font-size:13px;letter-spacing:3px;color:#8a93a8;' },
   'gate-end': { html: 'GO ALONE', pos: 'bottom:24px;right:28px;font-size:13px;border:1px solid #5a6478;padding:4px 12px;' },

@@ -12,8 +12,17 @@ void main(){
 
   vec3 col = mix(vec3(0.06,0.13,0.20), vec3(0.55,0.50,0.45), pow(uv.y,2.0));
 
-  // soft drifting mist
+  // faint stars in the upper sky (gentle twinkle)
+  if (uv.y > 0.5){
+    vec2 sg = floor(uv*vec2(300.0,170.0));
+    float sh = hash(sg);
+    float fade = smoothstep(0.5,0.85,uv.y);
+    col += vec3(0.8,0.85,1.0) * smoothstep(0.9965,1.0,sh) * (0.5+0.5*sin(uTime*1.5+sh*40.0)) * fade * 0.6;
+  }
+
+  // soft drifting mist (two layers)
   float mist = noise(uv*vec2(4.0,2.0)+vec2(uTime*0.02,0.0))*0.06;
+  mist += noise(uv*vec2(7.0,3.0)+vec2(-uTime*0.015,0.3))*0.04;
   col += vec3(0.3,0.34,0.4)*mist;
 
   float moon = smoothstep(0.06,0.0, distance(uv, vec2(0.62,0.78)));
@@ -24,6 +33,10 @@ void main(){
     float refl = smoothstep(0.10,0.0, abs(uv.x-0.62)) * smoothstep(0.42,0.0,uv.y);
     col = mix(vec3(0.04,0.08,0.11), col, 0.5) + ripple*0.04;
     col += vec3(0.8,0.78,0.7)*refl*ripple*0.25;
+    // reflected stars wobbling on the surface
+    vec2 ruv = vec2(uv.x + noise(uv*10.0+uTime*0.2)*0.01, 0.84 - uv.y);
+    vec2 rg = floor(ruv*vec2(300.0,170.0));
+    col += vec3(0.7,0.75,0.9) * smoothstep(0.9965,1.0,hash(rg)) * ripple * 0.15;
   }
 
   // torii-like gate: two posts + a lintel
