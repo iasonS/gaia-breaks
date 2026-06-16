@@ -27,7 +27,7 @@ await page.waitForFunction(() => {
 
 for (const t of times) {
   await page.evaluate((tt) => { document.getElementById('track').currentTime = tt; }, t);
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(600); // let opacity fades (.4s) settle so shots reflect exact state
   const name = `${OUT}/t_${String(Math.round(t)).padStart(3, '0')}.png`;
   await page.screenshot({ path: name });
   console.log('shot', name);

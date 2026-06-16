@@ -28,7 +28,10 @@ gate.addEventListener('click', async () => {
   const t = clock.time;
   const s = sampleScore(score, t);
   scenes.frame(s, t);
-  ui.update(s.ui, s.corruption);
+  ui.update({
+    ui: s.ui, corruption: s.corruption, time: t, duration: score.duration,
+    movement: s.blend >= 0.5 ? s.to : s.from, blend: s.blend, transitions: score.transitions,
+  });
   requestAnimationFrame(loop);
 })();
 
