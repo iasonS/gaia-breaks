@@ -112,9 +112,9 @@ export function createUI(root) {
     fill.style.width = `${Math.min(100, (t / duration) * 100)}%`;
     time.textContent = `${mmss(t)} / ${mmss(duration)}`;
 
-    // sign-off: the failing interface powers down into the Gate's resolution.
-    // Telemetry, framing, crosshair and scanlines fade out, leaving a clean final image.
-    const hud = 1 - smoothstep(310, 322, t);
+    // boot-up at the open, power-down into the Gate at the close: the interface
+    // comes online, struggles, dies, and signs off — bookending the piece.
+    const hud = smoothstep(0.5, 5, t) * (1 - smoothstep(310, 322, t));
     tel.style.opacity = String(0.72 * hud);
     scan.style.opacity = String(0.35 * hud);
     bar.style.opacity = String(hud);
