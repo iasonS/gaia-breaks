@@ -57,6 +57,13 @@ void main(){
   float core = 0.165 + 0.012*sin(uTime*1.3) + 0.01*noise(vec2(ang*2.0,uTime*0.5));
   col *= smoothstep(core,core+0.035,r);
 
+  // Gargantua lensing: a thin bright photon ring hugging the shadow + disk light
+  // bent up and over the top of the hole (the iconic halo).
+  float photon = smoothstep(0.010,0.0, abs(r - (core+0.018)));
+  col += mix(vec3(1.0,0.85,0.6), vec3(1.0,0.7,0.9), uProgress*0.5) * photon * (1.1+0.5*uProgress);
+  float overTop = smoothstep(0.055,0.0, abs(r-(core+0.06))) * smoothstep(-0.1,0.5, p.y/max(r,1e-3));
+  col += vec3(1.0,0.82,0.55) * overTop * 0.45;
+
   // crossing the horizon: at the very end the void inverts into a blinding bloom
   // that blows the frame out — the dive resolves into light, handing off to the Gate
   float cross = smoothstep(0.93,1.0,uProgress);
