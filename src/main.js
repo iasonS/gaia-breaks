@@ -30,10 +30,21 @@ gate.addEventListener('click', async () => {
   await clock.play();
 });
 
+let endAt = null;
 (function loop(){
   const t = clock.time;
+  // Authored choreography rides the deterministic audio clock (t). Organic motion
+  // gets its own time so the final Gate keeps breathing after the track ends,
+  // instead of freezing into a dead frame.
+  let animT = t;
+  if (clock.duration && t >= clock.duration - 0.05 && !clock.isPlaying) {
+    if (endAt === null) endAt = performance.now();
+    animT = clock.duration + (performance.now() - endAt) / 1000;
+  } else {
+    endAt = null;
+  }
   const s = sampleScore(score, t);
-  scenes.frame(s, t);
+  scenes.frame(s, animT);
   ui.update({
     ui: s.ui, corruption: s.corruption, time: t, duration: score.duration,
     movement: s.blend >= 0.5 ? s.to : s.from, blend: s.blend, transitions: score.transitions,
