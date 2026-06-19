@@ -14,9 +14,12 @@ void main(){
   vec2 p = (uv - 0.5); p.x *= uAspect;
 
   // --- kinetic camera + rhythmic mega-impacts: keep the eye moving ---
+  // the bombardment holds off for the first 10s — the world simply exists — then it begins
+  float meteorGate = smoothstep(9.7, 10.0, uTime);
+  float mt = max(0.0, uTime - 10.0);
   float mp = 4.3;
-  float mk = floor(uTime/mp), ml = fract(uTime/mp);
-  float impact = step(0.58, ml) * exp(-(ml-0.58)*9.0);           // sharp jolt after each strike
+  float mk = floor(mt/mp), ml = fract(mt/mp);
+  float impact = meteorGate * step(0.58, ml) * exp(-(ml-0.58)*9.0); // sharp jolt after each strike
   vec2 mhitUV = vec2(0.5 + (hash(vec2(mk,81.0))-0.5)*0.30, 0.34 + (hash(vec2(mk,82.0))-0.5)*0.14);
   uv += vec2(sin(uTime*0.17), cos(uTime*0.13))*0.006;            // living drift, never still
   uv += vec2(sin(uTime*73.0), cos(uTime*61.0))*impact*0.018;     // camera shake on impact
@@ -96,14 +99,14 @@ void main(){
 
   // meteor impacts hammering the dead surface: flash + expanding shockwave ring
   {
-    float ip = 2.3, ik = floor(uTime/ip), il = fract(uTime/ip);
+    float ip = 2.3, ik = floor(mt/ip), il = fract(mt/ip);
     vec2 hit = wc + vec2((hash(vec2(ik,5.0))-0.5)*0.55, (hash(vec2(ik,6.0))-0.5)*0.55);
     float onDisc = smoothstep(R,R-0.01,length(hit-wc)) * disc;
-    // impacts hit harder as the world's defenses fail — the bombardment breaks through
+    // the bombardment is unrelenting and intensifies — but the world never stops fighting it
     float dmg = 1.0 + 1.2*smoothstep(0.1,0.95,uProgress);
     float flash = exp(-il*9.0);
     float ring = smoothstep(0.018,0.0, abs(distance(p,hit) - il*0.30)) * (1.0-il);
-    col += vec3(1.0,0.6,0.3) * (flash*smoothstep(0.06,0.0,distance(p,hit)) + ring*0.7) * onDisc * dmg;
+    col += vec3(1.0,0.6,0.3) * (flash*smoothstep(0.06,0.0,distance(p,hit)) + ring*0.7) * onDisc * dmg * meteorGate;
   }
 
   // the world fights back: green defense beams lance up from the surface to meet the bombardment
@@ -120,12 +123,12 @@ void main(){
     float along = clamp(dot(p-origin,bd), 0.0, distance(origin,head));
     vec2 q = origin + bd*along;
     // the defenders never let up: the fire keeps coming, unrelenting, no matter the cost
-    float life = smoothstep(0.0,0.04,bl)*smoothstep(0.55,0.32,bl);
+    float life = smoothstep(0.0,0.04,bl)*smoothstep(0.55,0.32,bl) * meteorGate;
     col += vec3(0.45,1.0,0.65) * smoothstep(0.0065,0.0, distance(p,q)) * life * 1.9;   // tracer
     col += vec3(0.2,0.6,0.35) * smoothstep(0.016,0.0, distance(p,q)) * life * 0.6;     // tracer glow
-    col += vec3(0.7,1.0,0.8) * exp(-bl*15.0) * smoothstep(0.028,0.0,distance(p,origin)); // muzzle flash
+    col += vec3(0.7,1.0,0.8) * exp(-bl*15.0) * smoothstep(0.028,0.0,distance(p,origin)) * meteorGate; // muzzle flash
     float det = smoothstep(0.4,0.46,bl)*smoothstep(0.6,0.42,bl);
-    col += vec3(1.0,0.95,0.7) * det * smoothstep(0.045,0.0,distance(p,target)) * 2.2;   // intercept detonation
+    col += vec3(1.0,0.95,0.7) * det * smoothstep(0.045,0.0,distance(p,target)) * 2.2 * meteorGate;   // intercept detonation
   }
 
   // flak: anti-orbital defense bursts popping in the sky
@@ -133,7 +136,7 @@ void main(){
     float per=1.3, fk=floor(uTime/per), fl=fract(uTime/per);
     vec2 fp = vec2(0.12+0.76*hash(vec2(fk,40.0)), 0.46+0.34*hash(vec2(fk,41.0)));
     float fring = smoothstep(0.012,0.0, abs(distance(uv,fp)-fl*0.06))*(1.0-fl);
-    col += vec3(1.0,0.8,0.5) * (exp(-fl*7.0)*smoothstep(0.02,0.0,distance(uv,fp)) + fring*0.6) * 1.2;
+    col += vec3(1.0,0.8,0.5) * (exp(-fl*7.0)*smoothstep(0.02,0.0,distance(uv,fp)) + fring*0.6) * 1.2 * meteorGate;
   }
 
   // the shield NEVER gives in: it cracks under every hit but re-knits and is never
@@ -178,6 +181,7 @@ void main(){
     vec3 extC = vec3(1.0,0.8,0.6);                        // external force: white-hot
     vec3 innC = vec3(0.7,0.35,1.0);                       // inner demon: violet
     vec3 trailC = mix(extC, innC, inner);
+    fade *= meteorGate;                                  // no strikes before the assault begins
     col += trailC * smoothstep(0.010,0.0, distance(uv,q)) * fade * 2.0 * (1.0-inner);    // incoming trail (external only)
     col += mix(vec3(1.0,0.7,0.45), innC, inner) * smoothstep(0.022,0.0, distance(uv,cur)) * fade * 2.5 * (1.0-0.6*inner);
     col += mix(vec3(1.0,0.9,0.7), vec3(0.6,0.3,1.0), inner) * impact * 0.5;              // detonation flash
