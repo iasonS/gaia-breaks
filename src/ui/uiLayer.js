@@ -44,6 +44,7 @@ const CSS = `
 `;
 
 function mmss(s){ s=Math.max(0,Math.floor(s||0)); return `${String(Math.floor(s/60)).padStart(2,'0')}:${String(s%60).padStart(2,'0')}`; }
+function smoothstep(a,b,x){ const t=Math.max(0,Math.min(1,(x-a)/(b-a))); return t*t*(3-2*t); }
 
 export function createUI(root) {
   const nodes = {};
@@ -110,7 +111,15 @@ export function createUI(root) {
 
     fill.style.width = `${Math.min(100, (t / duration) * 100)}%`;
     time.textContent = `${mmss(t)} / ${mmss(duration)}`;
-    cross.style.opacity = String(0.25 + 0.25 * Math.abs(Math.sin(t * 1.5)));
+
+    // sign-off: the failing interface powers down into the Gate's resolution.
+    // Telemetry, framing, crosshair and scanlines fade out, leaving a clean final image.
+    const hud = 1 - smoothstep(310, 322, t);
+    tel.style.opacity = String(0.72 * hud);
+    scan.style.opacity = String(0.35 * hud);
+    bar.style.opacity = String(hud);
+    for (const b of corners) b.style.opacity = String(hud);
+    cross.style.opacity = String((0.25 + 0.25 * Math.abs(Math.sin(t * 1.5))) * hud);
   }
   return { update };
 }
