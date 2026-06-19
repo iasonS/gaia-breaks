@@ -22,6 +22,9 @@ void main(){
   // approach the fallen titan
   float zoom = 1.0 - 0.25*uProgress;
   vec2 uv = (vUv - vec2(0.5,0.45))*zoom + vec2(0.5,0.45);
+  // escalating tremors: periodic camera jolts that hit harder as collapse nears
+  float quake = exp(-fract(uTime*0.6)*12.0) * step(0.4, hash(vec2(floor(uTime*0.6),4.0)));
+  uv += vec2(sin(uTime*73.0), cos(uTime*61.0)) * quake * (0.25+0.75*uProgress) * 0.016;
   vec2 p = vec2((uv.x-0.5)*uAspect + 0.5, uv.y);
 
   // oppressive dim sky, low sun behind the figure
@@ -35,6 +38,13 @@ void main(){
   float rayAng = atan(toSun.y, toSun.x);
   float rays = pow(0.5+0.5*sin(rayAng*26.0 + sin(rayAng*7.0+uTime*0.15)*1.5), 3.0);
   col += vec3(1.0,0.5,0.28) * rays * smoothstep(0.7,0.05,length(toSun)) * 0.22;
+
+  // lightning cracking the doomed sky — discrete flashes, more frequent as it worsens
+  float lk = floor(uTime*0.7);
+  float lflash = exp(-fract(uTime*0.7)*16.0) * step(0.62 - 0.3*uProgress, hash(vec2(lk,3.0)));
+  float lx = hash(vec2(lk,8.0));                          // bolt position across the sky
+  col += vec3(0.75,0.55,0.85) * lflash * (0.25+0.5*uProgress)
+       * (0.4 + smoothstep(0.25,0.0, abs(uv.x-lx)) * smoothstep(0.0,0.6,uv.y));
 
   // distant ruined skyline (two parallax bands)
   float sky1 = skyline(uv, 0.135, 26.0, 7.0);
@@ -80,6 +90,11 @@ void main(){
   float cn2 = noise(ps*7.0 + uTime*0.03);
   crack += smoothstep(0.5,0.52,cn2)*smoothstep(0.6,0.55,cn2)*0.7;
   col += vec3(1.0,0.4,0.1) * crack * mask * (0.25 + 1.4*uProgress) * (0.7+0.3*sin(uTime*4.0));
+
+  // eruption bursts: the cracks flare in sudden flashes across the body
+  float ek = floor(uTime*0.8);
+  float erupt = exp(-fract(uTime*0.8)*9.0) * step(0.45, hash(vec2(ek,9.0)));
+  col += vec3(1.0,0.55,0.18) * erupt * mask * (0.4 + 1.6*uProgress);
 
   // rising sparks lifting off the burning titan
   for(int i=0;i<10;i++){

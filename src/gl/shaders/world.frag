@@ -23,7 +23,7 @@ void main(){
 
   // periodic shooting star streaking across the sky
   {
-    float period = 7.0, k = floor(uTime/period), lt = fract(uTime/period);
+    float period = 3.5, k = floor(uTime/period), lt = fract(uTime/period);
     vec2 a0 = vec2(hash(vec2(k,1.0))*0.7, 0.72 + 0.22*hash(vec2(k,2.0)));
     vec2 dir = normalize(vec2(0.7,-0.28));
     vec2 ss = a0 + dir*lt*1.0;
@@ -58,6 +58,16 @@ void main(){
   // atmosphere rim on the lit limb
   float rim = smoothstep(R+0.025,R,dd) * smoothstep(R-0.03,R,dd);
   col += vec3(0.5,0.3,0.8) * rim * (0.3 + lit) * 1.2;
+
+  // meteor impacts hammering the dead surface: flash + expanding shockwave ring
+  {
+    float ip = 2.3, ik = floor(uTime/ip), il = fract(uTime/ip);
+    vec2 hit = wc + vec2((hash(vec2(ik,5.0))-0.5)*0.55, (hash(vec2(ik,6.0))-0.5)*0.55);
+    float onDisc = smoothstep(R,R-0.01,length(hit-wc)) * disc;
+    float flash = exp(-il*9.0);
+    float ring = smoothstep(0.018,0.0, abs(distance(p,hit) - il*0.30)) * (1.0-il);
+    col += vec3(1.0,0.7,0.4) * (flash*smoothstep(0.05,0.0,distance(p,hit)) + ring*0.7) * onDisc;
+  }
 
   // tilted debris ring
   for(int i=0;i<24;i++){
