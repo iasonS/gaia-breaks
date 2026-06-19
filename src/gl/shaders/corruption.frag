@@ -6,7 +6,9 @@ uniform sampler2D uB;
 uniform float uBlend;       // 0..1 scene crossfade
 uniform float uCorrupt;     // 0..~1.5 corruption intensity
 uniform float uTime;
+uniform float uWire;        // 0/1 render-mode break (wireframe/debug view)
 // __COMMON__
+float luma(vec3 c){ return dot(c, vec3(0.299,0.587,0.114)); }
 void main(){
   vec2 uv = vUv;
   float c = uCorrupt;
@@ -53,6 +55,27 @@ void main(){
   }
   bl = max(vec3(0.0), bl/6.0 - 0.55);
   col += bl * 0.7;
+
+  // render-mode break: the engine flips to a wireframe/debug X-ray view for a beat.
+  // Edge-detect the clean frame and redraw it as glowing lines on black — subject
+  // edges in green, background structure in electric blue — flickering like a crash.
+  if (uWire > 0.001){
+    float px = 1.4/720.0;
+    vec3 c0 = mix(texture(uA,vUv).rgb, texture(uB,vUv).rgb, blend);
+    vec3 cx = mix(texture(uA,vUv+vec2(px,0.0)).rgb, texture(uB,vUv+vec2(px,0.0)).rgb, blend);
+    vec3 cy = mix(texture(uA,vUv+vec2(0.0,px)).rgb, texture(uB,vUv+vec2(0.0,px)).rgb, blend);
+    float l0=luma(c0), lx=luma(cx), ly=luma(cy);
+    float e = clamp((abs(l0-lx)+abs(l0-ly))*16.0, 0.0, 1.0);
+    e = pow(e, 0.6);
+    // brighter regions of the frame read as the "subject" (green), dim as structure (blue)
+    float subj = smoothstep(0.12,0.45,l0);
+    vec3 wire = mix(vec3(0.15,0.45,1.0), vec3(0.25,1.0,0.45), subj) * e;
+    wire += vec3(0.2,0.9,0.5) * pow(e,2.0) * 0.6;             // hot core on strong edges
+    wire *= 0.65 + 0.35*step(0.5, fract(vUv.y*260.0));         // scanlines
+    wire += vec3(0.1,0.25,0.6) * step(0.978, hash(vec2(vUv.y*3.0, floor(uTime*40.0)))); // stray debug rows
+    float flick = step(0.12, fract(uTime*22.0));              // rapid crash-flicker
+    col = mix(col, wire, uWire * (0.85 + 0.15*flick));
+  }
 
   // scanlines + grain scale with corruption
   col *= 1.0 - 0.25*c*step(0.5, fract(uv.y*220.0));

@@ -45,11 +45,20 @@ export function progressFor(t, name, windows) {
   return Math.max(0, Math.min(1, (t - win.start) / (win.end - win.start)));
 }
 
+/** 1 while t is inside any authored glitch window [at, at+dur], else 0. */
+export function glitchAt(t, glitches = []) {
+  for (const g of glitches) {
+    if (t >= g.at && t < g.at + g.dur) return 1;
+  }
+  return 0;
+}
+
 /** Bundle everything the director needs at time t. */
 export function sampleScore(score, t) {
   const m = movementAt(t, score.order, score.transitions);
   const corruption = sampleCurve(score.corruption, t);
   const ui = score.ui.filter(c => t >= c.show && t < c.hide).map(c => c.id);
   const windows = movementWindows(score.order, score.transitions, score.duration || 0);
-  return { ...m, corruption, ui, fromP: progressFor(t, m.from, windows), toP: progressFor(t, m.to, windows) };
+  const wire = glitchAt(t, score.glitches);
+  return { ...m, corruption, ui, wire, fromP: progressFor(t, m.from, windows), toP: progressFor(t, m.to, windows) };
 }

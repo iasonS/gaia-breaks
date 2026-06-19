@@ -31,6 +31,18 @@ export const score = {
     { t: 310, v: 0.05 },   // healed for the Gate / Minecraft ending
     { t: 325, v: 0.0 },
   ],
+  // render-mode breaks: the engine momentarily flips to wireframe/debug view.
+  // Authored into the Titan's dread-build, getting more frequent toward the drop,
+  // with a hard flip ON the drop itself.
+  glitches: [
+    { at: 62, dur: 0.5 },
+    { at: 80, dur: 0.8 },
+    { at: 94, dur: 0.6 },
+    { at: 100, dur: 1.0 },
+    { at: 104, dur: 0.7 },
+    { at: 108, dur: 1.4 },   // THE DROP — full wireframe flip
+    { at: 140, dur: 0.5 },   // a stab at the peak
+  ],
   ui: [
     { id: 'title', show: 0, hide: 10 },
     { id: 'world-label', show: 6, hide: 44 },

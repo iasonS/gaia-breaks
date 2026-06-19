@@ -45,6 +45,7 @@ export function createScenes(renderer) {
       g.uniform1f(uni(p, 'uBlend'), s.blend);
       g.uniform1f(uni(p, 'uCorrupt'), s.corruption);
       g.uniform1f(uni(p, 'uTime'), time);
+      g.uniform1f(uni(p, 'uWire'), s.wire || 0);
     }, null);
   }
 
