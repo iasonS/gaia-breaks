@@ -13,6 +13,19 @@ void main(){
   vec2 uv = (vUv - vec2(0.5,0.30))*zoom + vec2(0.5,0.30);
   vec2 p = (uv - 0.5); p.x *= uAspect;
 
+  // --- kinetic camera + rhythmic mega-impacts: keep the eye moving ---
+  float mp = 4.3;
+  float mk = floor(uTime/mp), ml = fract(uTime/mp);
+  float impact = step(0.58, ml) * exp(-(ml-0.58)*9.0);           // sharp jolt after each strike
+  vec2 mhitUV = vec2(0.5 + (hash(vec2(mk,81.0))-0.5)*0.30, 0.34 + (hash(vec2(mk,82.0))-0.5)*0.14);
+  uv += vec2(sin(uTime*0.17), cos(uTime*0.13))*0.006;            // living drift, never still
+  uv += vec2(sin(uTime*73.0), cos(uTime*61.0))*impact*0.018;     // camera shake on impact
+  float sw = max(0.0, ml-0.58);
+  vec2 toh = uv - mhitUV; float dh = length(toh);
+  uv += normalize(toh+1e-4) * sin((dh - sw*1.5)*38.0)*exp(-dh*4.0)*exp(-sw*5.0)*impact*0.03; // shockwave ripples the whole frame
+  uv = (uv-0.5)*(1.0 - impact*0.05) + 0.5;                       // zoom punch
+  p = (uv-0.5); p.x *= uAspect;
+
   // deep space + slowly drifting nebula (two layers)
   vec3 col = mix(vec3(0.02,0.02,0.05), vec3(0.06,0.03,0.10), uv.y);
   col += vec3(0.10,0.04,0.16) * noise(uv*3.0 + vec2(uTime*0.02,uTime*0.01)) * 0.5;
@@ -150,6 +163,34 @@ void main(){
   col += vec3(1.0,0.8,0.5) * smoothstep(0.045,0.0, sdd) * 2.0;
   float fa = atan(uv.y-sunp.y, uv.x-sunp.x);
   col += vec3(1.0,0.7,0.4) * pow(0.5+0.5*sin(fa*8.0+uTime*0.1),4.0) * smoothstep(0.3,0.0,sdd) * 0.35;
+
+  // incoming mega-meteor screaming in, then detonating with a screen-wide shock
+  {
+    vec2 from = mhitUV + vec2(0.55,0.62);
+    vec2 dir = normalize(mhitUV - from);
+    vec2 cur = mix(from, mhitUV, smoothstep(0.0,0.58,ml));
+    float along = clamp(dot(uv-cur, -dir), 0.0, 0.55);
+    vec2 q = cur - dir*along;
+    float fade = smoothstep(0.58,0.30,ml);
+    col += vec3(1.0,0.8,0.6) * smoothstep(0.010,0.0, distance(uv,q)) * fade * 2.0;       // burning trail
+    col += vec3(1.0,0.7,0.45) * smoothstep(0.022,0.0, distance(uv,cur)) * fade * 2.5;    // hot head
+    col += vec3(1.0,0.9,0.7) * impact * 0.5;                                             // detonation flash (full frame)
+    col += vec3(1.0,0.97,0.88) * smoothstep(0.07,0.0, distance(uv,mhitUV)) * impact * 4.0; // core blast
+    float ring = smoothstep(0.02,0.0, abs(distance(uv,mhitUV) - sw*1.5)) * exp(-sw*3.0) * step(0.58,ml);
+    col += vec3(1.0,0.7,0.4) * ring * 1.6;                                               // expanding shock ring
+  }
+
+  // foreground debris whipping past the camera (speed + depth)
+  for(int i=0;i<7;i++){
+    float fi=float(i);
+    float per=1.1+0.5*hash(vec2(fi,90.0)), dk=floor(uTime/per+fi), dl=fract(uTime/per+fi);
+    vec2 ddir = normalize(vec2(hash(vec2(dk,91.0))-0.5, -0.4-hash(vec2(dk,92.0))));
+    vec2 dp = vec2(hash(vec2(dk,93.0))*1.2-0.1, 1.15) + ddir*dl*1.7;
+    vec2 perp = vec2(-ddir.y, ddir.x);
+    float blur = smoothstep(0.016,0.0, abs(dot(uv-dp,perp))) * smoothstep(0.13,0.0, abs(dot(uv-dp,ddir)));
+    col = mix(col, vec3(0.04,0.03,0.04), blur*0.75);   // dark rock tumbling past
+    col += vec3(0.6,0.32,0.18) * blur * 0.4;           // faint lit edge
+  }
 
   // punching through the crust: molten light blows out as we dive into the planet
   col += vec3(1.0,0.45,0.15) * dive*dive * 0.9;
