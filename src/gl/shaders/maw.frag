@@ -33,6 +33,21 @@ void main(){
     col += sc*s*(0.7+1.0*plunge);
   }
 
+  // larger debris tumbling in on decaying spiral orbits — the consumed world/titan,
+  // winding up and heating as they near the horizon
+  for(int i=0;i<5;i++){
+    float fi=float(i);
+    float seed=hash(vec2(fi,17.0));
+    float life=fract(seed + uTime*(0.022+0.015*seed+0.05*uProgress));
+    float rr = mix(0.6, 0.17, life);
+    float a = seed*6.2831 + uTime*0.25 + (1.0-life)*7.0;   // orbit speeds up as it falls in
+    vec2 dp = vec2(cos(a)*1.78, sin(a)*0.62)*rr;            // tilted into the disk plane
+    float d = distance(p, dp);
+    float heat = life*life;                                 // glows hotter near the core
+    col = mix(col, vec3(0.02,0.018,0.025), smoothstep(0.013,0.0,d)); // dark rocky body
+    col += mix(vec3(0.7,0.4,0.25), vec3(1.0,0.7,0.4), heat) * smoothstep(0.016,0.005,d) * (0.4+0.8*heat);
+  }
+
   // spinning accretion ring — tighter, hotter, more turbulent as we fall;
   // the disk tilts toward edge-on as we dive in (squash y), so the silhouette keeps shifting
   float tilt = 1.0 - 0.45*plunge;
