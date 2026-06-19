@@ -7,7 +7,7 @@ const ELEMENTS = {
   'titan-label': { html: 'THE FALLEN TITAN<br><span class="kana">倒れし巨神</span>', pos: 'top:34%;left:28px;font-size:18px;color:#d3b0a0;' },
   'maw-label': { html: 'THE MAW<br><span class="kana">虚空 / BOUNDLESS ABYSS</span>', pos: 'top:34%;left:28px;font-size:18px;color:#c9b3ff;' },
   doomed:   { html: 'YOU ARE DOOMED.', pos: 'bottom:46px;left:28px;font-size:13px;letter-spacing:3px;color:#8a93a8;' },
-  'gate-end': { html: 'GO ALONE', pos: 'bottom:46px;right:28px;font-size:13px;border:1px solid #5a6478;padding:4px 12px;' },
+  'gate-end': { html: '七転び八起き<br><span class="kana">FALL SEVEN, RISE EIGHT</span>', pos: 'bottom:60px;left:50%;transform:translateX(-50%);text-align:center;font-size:22px;letter-spacing:5px;color:#e8dcc4;' },
 };
 
 // per-movement HUD identity

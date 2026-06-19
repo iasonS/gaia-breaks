@@ -3,7 +3,12 @@ precision highp float;
 in vec2 vUv; out vec4 o;
 uniform float uTime;
 uniform float uProgress;
+uniform float uAspect;
 // __COMMON__
+float capsule(vec2 p, vec2 a, vec2 b, float r){
+  vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);
+  return length(pa-ba*h)-r;
+}
 void main(){
   // gentle forward drift toward the gate
   float adv = 0.12*uProgress;
@@ -54,6 +59,24 @@ void main(){
   float lintel = step(abs(uv.y-0.60),0.02) * step(abs(uv.x-0.5),0.10);
   if (uv.y>0.30 && uv.y<0.60) col *= mix(0.1,1.0,post);
   if (lintel>0.5) col *= 0.1;
+
+  // 七転び八起き — a figure rises and stands at the gate (fall seven, rise eight).
+  // It climbs up out of the water and straightens, head lifting, over the whole outro.
+  float rise = smoothstep(0.05, 0.85, uProgress);
+  vec2 f = vec2((uv.x-0.5)*uAspect + 0.5, uv.y) - vec2(0.0, mix(-0.14,0.0,rise));
+  float hl = mix(0.46, 0.52, rise);                    // head lifts as it straightens
+  float fig = 1e9;
+  fig = min(fig, capsule(f, vec2(0.5,0.30), vec2(0.5,0.46), 0.022));            // torso
+  fig = min(fig, capsule(f, vec2(0.5,0.46), vec2(0.5,hl), 0.018));              // head/neck
+  fig = min(fig, capsule(f, vec2(0.5,0.44), vec2(mix(0.47,0.455,rise),0.34), 0.013)); // left arm
+  fig = min(fig, capsule(f, vec2(0.5,0.44), vec2(mix(0.53,0.545,rise),0.34), 0.013)); // right arm
+  fig = min(fig, capsule(f, vec2(0.49,0.30), vec2(0.48,0.18), 0.015));          // left leg
+  fig = min(fig, capsule(f, vec2(0.51,0.30), vec2(0.52,0.18), 0.015));          // right leg
+  float figMask = smoothstep(0.004,0.0, fig);
+  col = mix(col, vec3(0.02,0.03,0.05), figMask);                               // dark silhouette
+  float frim = smoothstep(0.012,0.0, abs(fig));
+  col += mix(vec3(0.4,0.5,0.7), vec3(1.0,0.85,0.6), rise) * frim * (0.35+0.85*rise); // dawn rim = strength
+  col += vec3(0.85,0.72,0.5) * smoothstep(0.10,0.0, fig) * rise * 0.14 * (0.75+0.25*sin(uTime*0.7)); // resolve aura
 
   o = vec4(col,1.0);
 }
