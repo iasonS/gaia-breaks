@@ -42,6 +42,18 @@ void main(){
   float edge = clamp(length(col-n)*8.0,0.0,1.0);
   col = mix(col, vec3(0.0), edge*0.5*c);
   col += vec3(0.48,0.24,1.0) * edge * c; // violet ink
+
+  // cheap bloom: pull a soft halo from bright neighbours so suns, molten cracks,
+  // the photon ring, spirit lights and the horizon-crossing all glow cinematically
+  vec3 bl = vec3(0.0);
+  for(int i=0;i<6;i++){
+    float a = float(i)/6.0*6.2831 + 0.4;
+    vec2 o2 = vec2(cos(a),sin(a)) * 0.014;
+    bl += mix(texture(uA, vUv+o2).rgb, texture(uB, vUv+o2).rgb, blend);
+  }
+  bl = max(vec3(0.0), bl/6.0 - 0.55);
+  col += bl * 0.7;
+
   // scanlines + grain scale with corruption
   col *= 1.0 - 0.25*c*step(0.5, fract(uv.y*220.0));
   col += (hash(uv*vec2(uTime*60.0,1.0))-0.5)*0.10*c;
