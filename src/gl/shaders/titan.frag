@@ -67,33 +67,41 @@ void main(){
     col += vec3(1.0,0.5,0.2) * smoothstep(sz,0.0, distance(uv,ap)) * tw * (0.4+0.3*layer);
   }
 
-  // the titan is losing its footing: it TIPS OVER — leaning further and further as
-  // its balance fails, nearly toppling, then wrenches itself back upright. A colossus
-  // fighting gravity, falling and catching itself, more violent as the drop nears.
-  float tp = 4.2;                                        // one near-fall every ~4.2s
-  float tl = fract(uTime/tp + 0.15);
-  float desp = 0.55 + 0.9*uProgress;                     // bigger topples toward the drop
-  float tip = smoothstep(0.0,0.6,tl) - smoothstep(0.64,0.80,tl);   // lean out... then catch
-  float dirn = (mod(floor(uTime/tp+0.15),2.0)<1.0) ? 1.0 : -1.0;   // alternate which way it lists
-  float ang = tip * 0.45 * dirn * desp;                  // the topple angle (rotates the whole body)
-  float effort = smoothstep(0.80,0.97,tl);               // the wrench back upright
+  // the titan COLLAPSES and rises: under its own dying weight the knees buckle, the
+  // hips sink, the torso folds and it crashes into a broken heap — lies there — then
+  // drags itself back up. Heavy and slow, not a tip-over. The fall of 七転び八起き.
+  float tp = 8.5;                                        // one full collapse+rise cycle
+  float tl = fract(uTime/tp + 0.08);
+  float desp = 0.7 + 0.6*uProgress;
+  float dirn = (mod(floor(uTime/tp+0.08),2.0)<1.0) ? 1.0 : -1.0;   // crumples one way, then the other
+  float c = smoothstep(0.30,0.54,tl) * (1.0 - smoothstep(0.74,0.97,tl)); // 0 standing .. 1 heap
+  c = pow(c, 0.85);
+  float crash  = smoothstep(0.50,0.55,tl) * smoothstep(0.66,0.55,tl);    // ground impact
+  float effort = smoothstep(0.74,0.86,tl) * (1.0 - smoothstep(0.93,1.0,tl)); // heaving back up
+  float tremor = 1.0 - smoothstep(0.0,0.30,tl);          // teetering before it goes
   vec2 ps = p;
-  ps.x += sin(uTime*0.7)*0.003;                          // small unstable tremor
-  // rotate the body about its feet so it actually leans and topples
-  vec2 pivot = vec2(0.5, 0.03);
-  float ca=cos(ang), sa=sin(ang);
-  vec2 dlt = ps - pivot;
-  ps = vec2(ca*dlt.x - sa*dlt.y, sa*dlt.x + ca*dlt.y) + pivot;
-  // head bows over the lean, snaps up when it fights upright
-  vec2 headEnd = mix(vec2(0.47,0.60), vec2(0.50,0.66), effort);
+  ps.x += sin(uTime*0.7)*0.004 + sin(uTime*9.0)*0.004*tremor;
+  ps += crash * vec2(sin(uTime*88.0),cos(uTime*80.0)) * 0.016 * desp;    // impact shake
+  // articulated joints lerp from standing to a crumpled heap, folded toward dirn
+  float d = dirn;
+  vec2 LF=vec2(0.45,0.0), RF=vec2(0.55,0.0);                             // feet stay planted
+  vec2 LK=mix(vec2(0.47,0.10), vec2(0.45+0.04*d,0.05), c);             // knees buckle outward
+  vec2 RK=mix(vec2(0.53,0.10), vec2(0.55+0.04*d,0.05), c);
+  vec2 HP=mix(vec2(0.5,0.18),  vec2(0.5+0.06*d,0.11), c);               // hips drop — brought to its knees
+  vec2 SH=mix(vec2(0.5,0.48),  vec2(0.5+0.13*d,0.26), c);               // shoulders slump forward
+  vec2 HD=mix(vec2(0.5,0.62),  vec2(0.5+0.20*d,0.18), c);               // head bows low
+  vec2 LH=mix(vec2(0.33,0.28), vec2(0.30,0.03), c);                     // hands hit the ground
+  vec2 RH=mix(vec2(0.66,0.40), vec2(0.70,0.03), c);
+  HD = mix(HD, HD+vec2(-0.04*d,0.10), effort);           // head lifts as it strains to rise
   float body = 1e9;
-  body = min(body, capsule(ps, vec2(0.5,0.50), vec2(0.5,0.16), 0.075)); // torso
-  body = min(body, capsule(ps, vec2(0.5,0.55), headEnd, 0.055));        // head/neck
-  // the arm on the falling side flails out to catch its balance
-  body = min(body, capsule(ps, vec2(0.5,0.49), mix(vec2(0.33,0.28),vec2(0.27-0.05*dirn,0.33),tip), 0.04)); // left arm
-  body = min(body, capsule(ps, vec2(0.5,0.49), mix(vec2(0.66,0.40),vec2(0.73-0.05*dirn,0.33),tip), 0.04)); // right arm
-  body = min(body, capsule(ps, vec2(0.47,0.18), vec2(0.43,0.0), 0.045));// left leg
-  body = min(body, capsule(ps, vec2(0.53,0.18), vec2(0.58,0.0), 0.045));// right leg
+  body = min(body, capsule(ps, HP, SH, 0.075));          // torso
+  body = min(body, capsule(ps, SH, HD, 0.05));           // neck/head
+  body = min(body, capsule(ps, SH, LH, 0.04));           // left arm
+  body = min(body, capsule(ps, SH, RH, 0.04));           // right arm
+  body = min(body, capsule(ps, HP, LK, 0.045));          // left thigh
+  body = min(body, capsule(ps, HP, RK, 0.045));          // right thigh
+  body = min(body, capsule(ps, LK, LF, 0.04));           // left shin
+  body = min(body, capsule(ps, RK, RF, 0.04));           // right shin
   float mask = smoothstep(0.006,0.0, body);
   mask *= step(noise(ps*22.0), 0.93);                      // eroded pitting
   // missing chunks, worsening as the titan dies
@@ -108,18 +116,20 @@ void main(){
   // the cracks flare from the strain of trying to rise, then gutter on collapse
   col += vec3(1.0,0.4,0.1) * crack * mask * (0.25 + 1.4*uProgress) * (0.7+0.3*sin(uTime*4.0));
   col += vec3(1.0,0.6,0.2) * crack * mask * effort * (0.6+0.9*uProgress);   // strain flare
+  col += vec3(1.0,0.5,0.15) * crack * mask * c * (0.8+1.0*uProgress);       // cracks blow open as it's crushed
+  col += vec3(1.0,0.7,0.35) * mask * crash * (1.2+1.5*uProgress);           // molten flash on impact
 
-  // dust dragged up under the foot it staggers onto as it lists over and recovers
+  // dust explodes out where the body crashes into the ground
   {
-    float dl = fract(uTime/tp + 0.15);
-    float hit = smoothstep(0.45,0.58,dl)*smoothstep(0.80,0.58,dl) * desp;
-    float spread = max(0.0, dl-0.45);
-    for(int i=0;i<8;i++){
+    float dl = fract(uTime/tp + 0.08);
+    float hit = smoothstep(0.50,0.55,dl)*smoothstep(0.76,0.55,dl) * desp;
+    float spread = max(0.0, dl-0.52);
+    for(int i=0;i<12;i++){
       float fi=float(i);
       float da = (hash(vec2(fi,71.0))-0.5)*2.4;
-      vec2 dp = vec2(0.5 + dirn*0.05 + sin(da)*(0.04+0.5*spread), 0.02 + abs(cos(da))*0.18*spread);
+      vec2 dp = vec2(0.5 + dirn*(0.12+0.8*spread) + sin(da)*(0.05+0.7*spread), 0.02 + abs(cos(da))*0.26*spread);
       dp.x = (dp.x-0.5)*uAspect + 0.5;
-      col += vec3(0.8,0.45,0.25) * smoothstep(0.02,0.0, distance(p,dp)) * hit;
+      col += vec3(0.85,0.5,0.28) * smoothstep(0.024,0.0, distance(p,dp)) * hit;
     }
   }
 
