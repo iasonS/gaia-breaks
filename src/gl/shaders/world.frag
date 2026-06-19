@@ -119,9 +119,8 @@ void main(){
     vec2 bd = normalize(head-origin+1e-4);
     float along = clamp(dot(p-origin,bd), 0.0, distance(origin,head));
     vec2 q = origin + bd*along;
-    // the defenders are overwhelmed: fire weakens as the world loses the fight
-    float overwhelmed = 1.0 - 0.6*smoothstep(0.1,0.9,uProgress);
-    float life = smoothstep(0.0,0.04,bl)*smoothstep(0.55,0.32,bl) * overwhelmed;
+    // the defenders never let up: the fire keeps coming, unrelenting, no matter the cost
+    float life = smoothstep(0.0,0.04,bl)*smoothstep(0.55,0.32,bl);
     col += vec3(0.45,1.0,0.65) * smoothstep(0.0065,0.0, distance(p,q)) * life * 1.9;   // tracer
     col += vec3(0.2,0.6,0.35) * smoothstep(0.016,0.0, distance(p,q)) * life * 0.6;     // tracer glow
     col += vec3(0.7,1.0,0.8) * exp(-bl*15.0) * smoothstep(0.028,0.0,distance(p,origin)); // muzzle flash
@@ -137,17 +136,17 @@ void main(){
     col += vec3(1.0,0.8,0.5) * (exp(-fl*7.0)*smoothstep(0.02,0.0,distance(uv,fp)) + fring*0.6) * 1.2;
   }
 
-  // the shield is failing: it holds early, then fractures and gives out as the
-  // bombardment wins. The struggle is losing — the protection fails despite the fight.
-  float fail = smoothstep(0.1, 0.95, uProgress);                  // 0 holding -> 1 gone
+  // the shield NEVER gives in: it cracks under every hit but re-knits and is never
+  // fully gone. Sorrowful, permanent resistance — self-preservation that understands
+  // the fight has to be forever.
   float shell = smoothstep(R+0.055,R+0.042,dd)*smoothstep(R+0.018,R+0.034,dd);
   float shieldAng = atan(p.y-wc.y, p.x-wc.x);
-  // cracks tear across the shield, widening as it fails — gaps where it no longer holds
-  float gap = smoothstep(0.35, 0.7, noise(vec2(shieldAng*3.0, uTime*0.3)) + fail*0.5);
-  float shieldHit = exp(-fract(uTime*0.9)*6.0) * (1.0 - fail);     // hits register less as it dies
-  col += vec3(0.3,0.7,1.0) * shell * (1.0-gap) * (0.12+0.5*shieldHit) * (1.0-0.7*fail) * (0.5+0.5*sin(uTime*28.0));
-  // sparks where the shield is tearing open
-  col += vec3(0.6,0.85,1.0) * shell * gap * fail * exp(-fract(uTime*3.0+shieldAng)*5.0) * 0.6;
+  // cracks travel around the shield, opening AND closing again — it always re-knits
+  float gap = smoothstep(0.55,0.82, 0.5+0.5*sin(shieldAng*5.0 + uTime*1.3 + noise(vec2(shieldAng*3.0,uTime*0.5))*3.0));
+  float shieldHit = exp(-fract(uTime*0.9)*6.0);
+  col += vec3(0.32,0.62,1.0) * shell * (1.0 - 0.7*gap) * (0.18+0.5*shieldHit) * (0.55+0.45*sin(uTime*26.0));
+  // bright flare where it re-knits over a fresh hit — the act of holding on
+  col += vec3(0.6,0.85,1.0) * shell * gap * exp(-fract(uTime*3.0+shieldAng)*5.0) * 0.5;
 
   // tilted debris ring
   for(int i=0;i<24;i++){
@@ -164,20 +163,38 @@ void main(){
   float fa = atan(uv.y-sunp.y, uv.x-sunp.x);
   col += vec3(1.0,0.7,0.4) * pow(0.5+0.5*sin(fa*8.0+uTime*0.1),4.0) * smoothstep(0.3,0.0,sdd) * 0.35;
 
-  // incoming mega-meteor screaming in, then detonating with a screen-wide shock
+  // the assault comes from every direction and every source — external forces AND
+  // inner demons. Most strikes scream in from outside (white-hot); some erupt from
+  // within (violet), the demons attacking self-preservation from the inside.
   {
-    vec2 from = mhitUV + vec2(0.55,0.62);
+    float inner = step(0.62, hash(vec2(mk,85.0)));        // this strike comes from within
+    vec2 fromDir = normalize(vec2(hash(vec2(mk,83.0))-0.5, hash(vec2(mk,84.0))-0.5)+1e-4);
+    vec2 from = mhitUV + fromDir*0.85;                    // incoming from any side
     vec2 dir = normalize(mhitUV - from);
     vec2 cur = mix(from, mhitUV, smoothstep(0.0,0.58,ml));
     float along = clamp(dot(uv-cur, -dir), 0.0, 0.55);
     vec2 q = cur - dir*along;
     float fade = smoothstep(0.58,0.30,ml);
-    col += vec3(1.0,0.8,0.6) * smoothstep(0.010,0.0, distance(uv,q)) * fade * 2.0;       // burning trail
-    col += vec3(1.0,0.7,0.45) * smoothstep(0.022,0.0, distance(uv,cur)) * fade * 2.5;    // hot head
-    col += vec3(1.0,0.9,0.7) * impact * 0.5;                                             // detonation flash (full frame)
-    col += vec3(1.0,0.97,0.88) * smoothstep(0.07,0.0, distance(uv,mhitUV)) * impact * 4.0; // core blast
+    vec3 extC = vec3(1.0,0.8,0.6);                        // external force: white-hot
+    vec3 innC = vec3(0.7,0.35,1.0);                       // inner demon: violet
+    vec3 trailC = mix(extC, innC, inner);
+    col += trailC * smoothstep(0.010,0.0, distance(uv,q)) * fade * 2.0 * (1.0-inner);    // incoming trail (external only)
+    col += mix(vec3(1.0,0.7,0.45), innC, inner) * smoothstep(0.022,0.0, distance(uv,cur)) * fade * 2.5 * (1.0-0.6*inner);
+    col += mix(vec3(1.0,0.9,0.7), vec3(0.6,0.3,1.0), inner) * impact * 0.5;              // detonation flash
+    col += mix(vec3(1.0,0.97,0.88), vec3(0.75,0.5,1.0), inner) * smoothstep(0.07,0.0, distance(uv,mhitUV)) * impact * 4.0; // blast
     float ring = smoothstep(0.02,0.0, abs(distance(uv,mhitUV) - sw*1.5)) * exp(-sw*3.0) * step(0.58,ml);
-    col += vec3(1.0,0.7,0.4) * ring * 1.6;                                               // expanding shock ring
+    col += mix(vec3(1.0,0.7,0.4), vec3(0.7,0.4,1.0), inner) * ring * 1.6;                // shock ring
+  }
+
+  // matter slowly winding inward toward the world — the first hint of the Maw to come
+  for(int i=0;i<14;i++){
+    float fi=float(i);
+    float t = fract(hash(vec2(fi,60.0)) + uTime*(0.02+0.015*hash(vec2(fi,61.0))));
+    float rad = mix(0.95, 0.02, t);                       // spirals inward
+    float ang = hash(vec2(fi,62.0))*6.2831 + t*6.5;       // winding pull
+    vec2 dp = wc + vec2(cos(ang),sin(ang))*rad; dp.x = wc.x + (dp.x-wc.x);
+    col += vec3(0.5,0.45,0.55) * smoothstep(0.006,0.0, distance(p,dp))
+         * (0.3+0.4*sin(uTime*2.0+fi)) * smoothstep(0.0,0.12,t) * smoothstep(1.0,0.82,t);
   }
 
   // foreground debris whipping past the camera (speed + depth)
