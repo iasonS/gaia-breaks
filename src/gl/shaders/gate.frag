@@ -9,6 +9,7 @@ float capsule(vec2 p, vec2 a, vec2 b, float r){
   vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);
   return length(pa-ba*h)-r;
 }
+float boxd(vec2 p, vec2 c, vec2 h){ vec2 d=abs(p-c)-h; return length(max(d,0.0))+min(max(d.x,d.y),0.0); }
 void main(){
   // gentle forward drift toward the gate
   float adv = 0.12*uProgress;
@@ -54,11 +55,21 @@ void main(){
     col += vec3(0.7,0.75,0.9) * smoothstep(0.9965,1.0,hash(rg)) * ripple * 0.15;
   }
 
-  // torii-like gate: two posts + a lintel
-  float post = step(0.02, abs(uv.x-0.44)) * step(0.02, abs(uv.x-0.56));
-  float lintel = step(abs(uv.y-0.60),0.02) * step(abs(uv.x-0.5),0.10);
-  if (uv.y>0.30 && uv.y<0.60) col *= mix(0.1,1.0,post);
-  if (lintel>0.5) col *= 0.1;
+  // a proper torii: tapered pillars, swept top beam (kasagi) + shimaki, the
+  // protruding tie-beam (nuki) and the little centre strut (gakuzuka).
+  float td = 1e9;
+  td = min(td, boxd(uv, vec2(0.40,0.39), vec2(0.017,0.21)));   // left pillar
+  td = min(td, boxd(uv, vec2(0.60,0.39), vec2(0.017,0.21)));   // right pillar
+  td = min(td, boxd(uv, vec2(0.50,0.47), vec2(0.135,0.012)));  // nuki (protruding tie-beam)
+  td = min(td, boxd(uv, vec2(0.50,0.535),vec2(0.011,0.05)));   // gakuzuka (centre strut)
+  td = min(td, boxd(uv, vec2(0.50,0.575),vec2(0.165,0.011)));  // shimaki (lower top beam)
+  float sweep = 0.028*pow(clamp(abs(uv.x-0.5)/0.20,0.0,1.0), 2.2); // ends curve upward
+  td = min(td, boxd(uv - vec2(0.0,sweep), vec2(0.50,0.605), vec2(0.20,0.016))); // kasagi (swept top beam)
+  float toriiMask = smoothstep(0.0035,0.0, td);
+  col = mix(col, vec3(0.025,0.02,0.03), toriiMask);            // dark weathered silhouette
+  float trim = smoothstep(0.010,0.0, abs(td));
+  col += mix(vec3(0.32,0.42,0.62), vec3(0.95,0.78,0.55), pow(uv.y,1.5)) * trim * 0.55; // dawn rim
+  col += vec3(0.45,0.10,0.07) * toriiMask * (0.12 + 0.18*smoothstep(0.30,0.66,uv.y));  // weathered vermillion
 
   // 七転び八起き — a figure rises and stands at the gate (fall seven, rise eight).
   // It climbs up out of the water and straightens, head lifting, over the whole outro.
