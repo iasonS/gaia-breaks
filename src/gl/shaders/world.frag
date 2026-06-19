@@ -50,7 +50,9 @@ void main(){
   // cracks spread and pulse brighter as the world dies further (progress)
   float crackThresh = 0.5 - 0.06*uProgress;
   float cracks = smoothstep(0.45,crackThresh, noise(rc*3.0 + 3.0)) * smoothstep(0.62,0.55, noise(rc*6.0 + uTime*0.02));
-  float pulse = 0.7 + 0.5*sin(uTime*1.5) * uProgress;
+  // the core fights to keep beating: a double-thump heartbeat throbbing through the cracks
+  float beat = pow(0.5+0.5*sin(uTime*2.6),6.0) + 0.7*pow(0.5+0.5*sin(uTime*2.6-0.7),6.0);
+  float pulse = 0.55 + 0.9*beat;
   vec3 surf = vec3(0.04,0.03,0.05)*(0.15 + lit*0.85);
   surf += vec3(0.05,0.035,0.06) * noise(rc*9.0) * lit * 0.8; // rotating terrain mottle catching the light
   surf += vec3(1.0,0.35,0.08) * cracks * (0.4 + 0.6*(1.0-lit)) * pulse * (1.0+0.6*uProgress); // cracks glow on the dark side
@@ -68,6 +70,40 @@ void main(){
     float ring = smoothstep(0.018,0.0, abs(distance(p,hit) - il*0.30)) * (1.0-il);
     col += vec3(1.0,0.7,0.4) * (flash*smoothstep(0.05,0.0,distance(p,hit)) + ring*0.7) * onDisc;
   }
+
+  // the world fights back: green defense beams lance up from the surface to meet the bombardment
+  for (int i=0;i<3;i++){
+    float fi=float(i);
+    float per = 1.7 + fi*0.6;
+    float bk = floor(uTime/per + fi*0.33);
+    float bl = fract(uTime/per + fi*0.33);
+    float oa = 1.2 + (hash(vec2(bk,fi+20.0))-0.5)*2.2;            // launch angle around the top
+    vec2 origin = wc + vec2(cos(oa),sin(oa))*R*0.97;
+    vec2 target = origin + vec2((hash(vec2(bk,fi+30.0))-0.5)*0.5, 0.30+0.30*hash(vec2(bk,fi+31.0)));
+    vec2 head = mix(origin, target, smoothstep(0.0,0.4,bl));
+    vec2 bd = normalize(head-origin+1e-4);
+    float along = clamp(dot(p-origin,bd), 0.0, distance(origin,head));
+    vec2 q = origin + bd*along;
+    float life = smoothstep(0.0,0.04,bl)*smoothstep(0.55,0.32,bl);
+    col += vec3(0.45,1.0,0.65) * smoothstep(0.0065,0.0, distance(p,q)) * life * 1.9;   // tracer
+    col += vec3(0.2,0.6,0.35) * smoothstep(0.016,0.0, distance(p,q)) * life * 0.6;     // tracer glow
+    col += vec3(0.7,1.0,0.8) * exp(-bl*15.0) * smoothstep(0.028,0.0,distance(p,origin)); // muzzle flash
+    float det = smoothstep(0.4,0.46,bl)*smoothstep(0.6,0.42,bl);
+    col += vec3(1.0,0.95,0.7) * det * smoothstep(0.045,0.0,distance(p,target)) * 2.2;   // intercept detonation
+  }
+
+  // flak: anti-orbital defense bursts popping in the sky
+  {
+    float per=1.3, fk=floor(uTime/per), fl=fract(uTime/per);
+    vec2 fp = vec2(0.12+0.76*hash(vec2(fk,40.0)), 0.46+0.34*hash(vec2(fk,41.0)));
+    float fring = smoothstep(0.012,0.0, abs(distance(uv,fp)-fl*0.06))*(1.0-fl);
+    col += vec3(1.0,0.8,0.5) * (exp(-fl*7.0)*smoothstep(0.02,0.0,distance(uv,fp)) + fring*0.6) * 1.2;
+  }
+
+  // failing shield flickering over the world as it takes hits
+  float shell = smoothstep(R+0.055,R+0.042,dd)*smoothstep(R+0.018,R+0.034,dd);
+  float shieldHit = exp(-fract(uTime*0.9)*6.0);
+  col += vec3(0.3,0.7,1.0) * shell * (0.12+0.5*shieldHit) * (0.5+0.5*sin(uTime*28.0));
 
   // tilted debris ring
   for(int i=0;i<24;i++){
