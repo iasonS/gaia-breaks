@@ -4,8 +4,14 @@ import { createUI } from './ui/uiLayer.js';
 import { createAudioClock } from './audioClock.js';
 import { sampleScore } from './score.js';
 import { score } from './score-data.js';
+// Import the track as an asset so the production build inlines it as a base64
+// data URI (assetsInlineLimit is set huge in vite.config) — the single-file
+// dist/index.html is then fully self-contained and plays standalone.
+import trackUrl from '../audio/born-to-be-a-star.mp3';
 
 const SHOOT = location.search.includes('shoot'); // headless screenshot mode
+
+document.getElementById('track').src = trackUrl;
 
 const canvas = document.getElementById('gl');
 const dpr = Math.min(devicePixelRatio || 1, 2);
