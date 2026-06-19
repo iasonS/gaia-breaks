@@ -66,9 +66,11 @@ void main(){
     float ip = 2.3, ik = floor(uTime/ip), il = fract(uTime/ip);
     vec2 hit = wc + vec2((hash(vec2(ik,5.0))-0.5)*0.55, (hash(vec2(ik,6.0))-0.5)*0.55);
     float onDisc = smoothstep(R,R-0.01,length(hit-wc)) * disc;
+    // impacts hit harder as the world's defenses fail — the bombardment breaks through
+    float dmg = 1.0 + 1.2*smoothstep(0.1,0.95,uProgress);
     float flash = exp(-il*9.0);
     float ring = smoothstep(0.018,0.0, abs(distance(p,hit) - il*0.30)) * (1.0-il);
-    col += vec3(1.0,0.7,0.4) * (flash*smoothstep(0.05,0.0,distance(p,hit)) + ring*0.7) * onDisc;
+    col += vec3(1.0,0.6,0.3) * (flash*smoothstep(0.06,0.0,distance(p,hit)) + ring*0.7) * onDisc * dmg;
   }
 
   // the world fights back: green defense beams lance up from the surface to meet the bombardment
@@ -84,7 +86,9 @@ void main(){
     vec2 bd = normalize(head-origin+1e-4);
     float along = clamp(dot(p-origin,bd), 0.0, distance(origin,head));
     vec2 q = origin + bd*along;
-    float life = smoothstep(0.0,0.04,bl)*smoothstep(0.55,0.32,bl);
+    // the defenders are overwhelmed: fire weakens as the world loses the fight
+    float overwhelmed = 1.0 - 0.6*smoothstep(0.1,0.9,uProgress);
+    float life = smoothstep(0.0,0.04,bl)*smoothstep(0.55,0.32,bl) * overwhelmed;
     col += vec3(0.45,1.0,0.65) * smoothstep(0.0065,0.0, distance(p,q)) * life * 1.9;   // tracer
     col += vec3(0.2,0.6,0.35) * smoothstep(0.016,0.0, distance(p,q)) * life * 0.6;     // tracer glow
     col += vec3(0.7,1.0,0.8) * exp(-bl*15.0) * smoothstep(0.028,0.0,distance(p,origin)); // muzzle flash
@@ -100,10 +104,17 @@ void main(){
     col += vec3(1.0,0.8,0.5) * (exp(-fl*7.0)*smoothstep(0.02,0.0,distance(uv,fp)) + fring*0.6) * 1.2;
   }
 
-  // failing shield flickering over the world as it takes hits
+  // the shield is failing: it holds early, then fractures and gives out as the
+  // bombardment wins. The struggle is losing — the protection fails despite the fight.
+  float fail = smoothstep(0.1, 0.95, uProgress);                  // 0 holding -> 1 gone
   float shell = smoothstep(R+0.055,R+0.042,dd)*smoothstep(R+0.018,R+0.034,dd);
-  float shieldHit = exp(-fract(uTime*0.9)*6.0);
-  col += vec3(0.3,0.7,1.0) * shell * (0.12+0.5*shieldHit) * (0.5+0.5*sin(uTime*28.0));
+  float shieldAng = atan(p.y-wc.y, p.x-wc.x);
+  // cracks tear across the shield, widening as it fails — gaps where it no longer holds
+  float gap = smoothstep(0.35, 0.7, noise(vec2(shieldAng*3.0, uTime*0.3)) + fail*0.5);
+  float shieldHit = exp(-fract(uTime*0.9)*6.0) * (1.0 - fail);     // hits register less as it dies
+  col += vec3(0.3,0.7,1.0) * shell * (1.0-gap) * (0.12+0.5*shieldHit) * (1.0-0.7*fail) * (0.5+0.5*sin(uTime*28.0));
+  // sparks where the shield is tearing open
+  col += vec3(0.6,0.85,1.0) * shell * gap * fail * exp(-fract(uTime*3.0+shieldAng)*5.0) * 0.6;
 
   // tilted debris ring
   for(int i=0;i<24;i++){
