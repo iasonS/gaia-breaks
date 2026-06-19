@@ -67,15 +67,29 @@ void main(){
     col += vec3(1.0,0.5,0.2) * smoothstep(sz,0.0, distance(uv,ap)) * tw * (0.4+0.3*layer);
   }
 
-  // the fallen titan: a colossal broken humanoid (head bowed), swaying as it fails
+  // the fallen titan STRUGGLES TO RISE: it heaves up, strains, and collapses again —
+  // over and over, harder and more desperate as the drop nears. It never makes it.
+  // (The rising comes later, at the Gate.)
+  float hp = 3.4;                                        // one attempt every ~3.4s
+  float hl = fract(uTime/hp);
+  float effort  = smoothstep(0.0,0.5,hl) * (1.0 - smoothstep(0.55,0.74,hl)); // strain up then give
+  float collapse = smoothstep(0.58,0.68,hl) * smoothstep(0.86,0.70,hl);      // the slam down
+  float desp = 0.6 + 0.8*uProgress;                      // more violent toward the drop
+  float lift = effort * 0.045 * desp;
   vec2 ps = p;
   ps.x += sin(uTime*0.35)*0.006 + sin(uTime*0.11)*0.004; // slow unstable sway
   ps.y += sin(uTime*0.6)*0.003;                          // labored breathing
+  ps.y -= lift;                                          // heave the whole body up
+  ps.y += collapse * 0.03 * desp;                        // then slam back down
+  ps.x += collapse * sin(uTime*80.0) * 0.01 * desp;      // judder on impact
+  // head un-bows as it strains, drops again on collapse
+  vec2 headEnd = mix(vec2(0.47,0.60), vec2(0.50,0.66), effort);
   float body = 1e9;
   body = min(body, capsule(ps, vec2(0.5,0.50), vec2(0.5,0.16), 0.075)); // torso
-  body = min(body, capsule(ps, vec2(0.5,0.55), vec2(0.47,0.60), 0.055));// bowed head/neck
-  body = min(body, capsule(ps, vec2(0.5,0.49), vec2(0.33,0.28), 0.04)); // left arm (hanging)
-  body = min(body, capsule(ps, vec2(0.5,0.49), vec2(0.66,0.40), 0.04)); // right arm (slack)
+  body = min(body, capsule(ps, vec2(0.5,0.55), headEnd, 0.055));        // head/neck (lifts with effort)
+  // arms push down against the ground during the effort to rise
+  body = min(body, capsule(ps, vec2(0.5,0.49), mix(vec2(0.33,0.28),vec2(0.30,0.14),effort), 0.04)); // left arm
+  body = min(body, capsule(ps, vec2(0.5,0.49), mix(vec2(0.66,0.40),vec2(0.70,0.14),effort), 0.04)); // right arm
   body = min(body, capsule(ps, vec2(0.47,0.18), vec2(0.43,0.0), 0.045));// left leg
   body = min(body, capsule(ps, vec2(0.53,0.18), vec2(0.58,0.0), 0.045));// right leg
   float mask = smoothstep(0.006,0.0, body);
@@ -89,7 +103,23 @@ void main(){
   float crack = smoothstep(0.46,0.5,cn)*smoothstep(0.56,0.52,cn);
   float cn2 = noise(ps*7.0 + uTime*0.03);
   crack += smoothstep(0.5,0.52,cn2)*smoothstep(0.6,0.55,cn2)*0.7;
+  // the cracks flare from the strain of trying to rise, then gutter on collapse
   col += vec3(1.0,0.4,0.1) * crack * mask * (0.25 + 1.4*uProgress) * (0.7+0.3*sin(uTime*4.0));
+  col += vec3(1.0,0.6,0.2) * crack * mask * effort * (0.6+0.9*uProgress);   // strain flare
+
+  // dust + embers blasting out at the feet each time it slams back down
+  {
+    float dl = fract(uTime/hp);
+    float hit = smoothstep(0.6,0.66,dl)*smoothstep(0.82,0.66,dl) * desp;
+    for(int i=0;i<8;i++){
+      float fi=float(i);
+      float ang = (hash(vec2(fi,71.0))-0.5)*2.4;
+      float spread = collapse>0.0 ? dl-0.6 : 0.0;
+      vec2 dp = vec2(0.5 + sin(ang)*(0.04+0.5*max(0.0,spread)), 0.02 + abs(cos(ang))*0.18*max(0.0,spread));
+      dp.x = (dp.x-0.5)*uAspect + 0.5;
+      col += vec3(0.8,0.45,0.25) * smoothstep(0.02,0.0, distance(p,dp)) * hit;
+    }
+  }
 
   // eruption bursts: the cracks flare in sudden flashes across the body
   float ek = floor(uTime*0.8);
