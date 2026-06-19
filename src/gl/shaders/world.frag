@@ -35,9 +35,9 @@ void main(){
     col += vec3(0.85,0.92,1.0) * streak * 1.6;
   }
 
-  // the dead world: big cracked sphere, low center
-  vec2 wc = vec2(0.0, -0.12);
-  float R = 0.45;
+  // the dead world: a huge cracked sphere dominating the frame
+  vec2 wc = vec2(0.0, -0.08);
+  float R = 0.60;
   float dd = length(p - wc);
   float disc = smoothstep(R, R-0.004, dd);
   vec2 sp = (p - wc)/R;
@@ -58,7 +58,25 @@ void main(){
   vec3 surf = vec3(0.04,0.03,0.05)*(0.15 + lit*0.85);
   surf += vec3(0.05,0.035,0.06) * noise(rc*9.0) * lit * 0.8; // rotating terrain mottle catching the light
   surf += vec3(1.0,0.35,0.08) * cracks * (0.4 + 0.6*(1.0-lit)) * pulse * (1.0+0.6*uProgress); // cracks glow on the dark side
+  // a vast molten rift tearing the world open, widening as it dies
+  float riftLine = sp.y + 0.18*sin(sp.x*4.0 + 1.0) + 0.06*noise(rc*5.0);
+  float rift = smoothstep(0.05 + 0.10*uProgress, 0.0, abs(riftLine));
+  surf += vec3(1.0,0.5,0.12) * rift * (0.25 + 0.9*uProgress) * (0.7+0.5*beat) * 2.2; // molten core through the split
+  surf = mix(surf, vec3(0.0), smoothstep(0.02,0.0,abs(riftLine)) * uProgress * 0.6); // dark gap at the very seam
   col = mix(col, surf, disc);
+
+  // molten plumes erupting off the dying surface, arcing into space
+  for(int i=0;i<5;i++){
+    float fi=float(i);
+    float per=2.0+fi*0.7, pk=floor(uTime/per+fi*0.5), pl=fract(uTime/per+fi*0.5);
+    vec2 outd = vec2(cos(hash(vec2(pk,fi+50.0))*6.2831), sin(hash(vec2(pk,fi+51.0))*6.2831));
+    vec2 base = wc + outd*R*0.99;
+    float reach = (0.06 + 0.22*uProgress) * smoothstep(0.0,0.2,pl);
+    float along = clamp(dot(p-base, outd), 0.0, reach);
+    vec2 q = base + outd*along;
+    float plume = smoothstep(0.013*(1.0 - along/max(reach,0.01)*0.8), 0.0, distance(p,q)) * (1.0-pl);
+    col += vec3(1.0,0.5,0.15) * plume * (0.5+0.9*uProgress) * 1.3;
+  }
   // atmosphere rim on the lit limb
   float rim = smoothstep(R+0.025,R,dd) * smoothstep(R-0.03,R,dd);
   col += vec3(0.5,0.3,0.8) * rim * (0.3 + lit) * 1.2;
