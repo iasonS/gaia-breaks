@@ -3,12 +3,13 @@ precision highp float;
 in vec2 vUv; out vec4 o;
 uniform float uTime;
 uniform float uProgress;
+uniform float uAspect;
 // __COMMON__
 void main(){
   // plunge: accelerate inward through the movement; the second half is a real dive
   float plunge = smoothstep(0.5,1.0,uProgress);          // 0 until halfway, then dives
   float fall = 1.0 - 0.5*uProgress - 0.30*plunge;        // core swells, then we rush in
-  vec2 p = (vUv - 0.5) * fall; p.x *= 1.78;
+  vec2 p = (vUv - 0.5) * fall; p.x *= uAspect;
   float r = length(p);
   float ang = atan(p.y,p.x);
   vec3 col = vec3(0.02,0.015,0.05);
@@ -22,7 +23,7 @@ void main(){
     float life = fract(seed + uTime*spd);
     float rr = mix(0.9,0.03,life);
     float a = seed*6.2831 + uTime*0.1;
-    vec2 sp = vec2(cos(a),sin(a))*rr; sp.x*=1.78;
+    vec2 sp = vec2(cos(a),sin(a))*rr; sp.x*=uAspect;
     // streak: stretch toward the core as it accelerates
     vec2 dir = normalize(-sp + 1e-4);
     float along = clamp(dot(p-sp, dir),0.0,streakLen);
@@ -41,7 +42,7 @@ void main(){
     float life=fract(seed + uTime*(0.022+0.015*seed+0.05*uProgress));
     float rr = mix(0.6, 0.17, life);
     float a = seed*6.2831 + uTime*0.25 + (1.0-life)*7.0;   // orbit speeds up as it falls in
-    vec2 dp = vec2(cos(a)*1.78, sin(a)*0.62)*rr;            // tilted into the disk plane
+    vec2 dp = vec2(cos(a)*uAspect, sin(a)*0.62)*rr;         // tilted into the disk plane
     float d = distance(p, dp);
     float heat = life*life;                                 // glows hotter near the core
     col = mix(col, vec3(0.02,0.018,0.025), smoothstep(0.013,0.0,d)); // dark rocky body

@@ -15,7 +15,8 @@ const browser = await chromium.launch({
   headless: true,
   args: ['--use-gl=angle', '--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
-const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+const [vw, vh] = (process.env.VIEWPORT || '1280x720').split('x').map(Number);
+const page = await browser.newPage({ viewport: { width: vw, height: vh } });
 page.on('console', (m) => { if (m.type() === 'error') console.log('PAGE ERROR:', m.text()); });
 page.on('pageerror', (e) => console.log('PAGE EXCEPTION:', e.message));
 

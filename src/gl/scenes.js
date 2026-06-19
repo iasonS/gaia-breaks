@@ -30,6 +30,7 @@ export function createScenes(renderer) {
     draw(progs[name], (g, p) => {
       g.uniform1f(uni(p, 'uTime'), time);
       g.uniform1f(uni(p, 'uProgress'), progress);
+      g.uniform1f(uni(p, 'uAspect'), g.canvas.width / g.canvas.height);
     }, target);
   }
 

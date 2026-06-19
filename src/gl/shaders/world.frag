@@ -3,12 +3,13 @@ precision highp float;
 in vec2 vUv; out vec4 o;
 uniform float uTime;
 uniform float uProgress;
+uniform float uAspect;
 // __COMMON__
 void main(){
   // slow approach toward the dead world
   float zoom = 1.0 - 0.18*uProgress;
   vec2 uv = (vUv - vec2(0.5,0.30))*zoom + vec2(0.5,0.30);
-  vec2 p = (uv - 0.5); p.x *= 1.78;
+  vec2 p = (uv - 0.5); p.x *= uAspect;
 
   // deep space + slowly drifting nebula (two layers)
   vec3 col = mix(vec3(0.02,0.02,0.05), vec3(0.06,0.03,0.10), uv.y);

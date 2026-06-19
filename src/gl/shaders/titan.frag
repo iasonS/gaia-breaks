@@ -3,6 +3,7 @@ precision highp float;
 in vec2 vUv; out vec4 o;
 uniform float uTime;
 uniform float uProgress;
+uniform float uAspect;
 // __COMMON__
 float capsule(vec2 p, vec2 a, vec2 b, float r){
   vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);
@@ -21,7 +22,7 @@ void main(){
   // approach the fallen titan
   float zoom = 1.0 - 0.25*uProgress;
   vec2 uv = (vUv - vec2(0.5,0.45))*zoom + vec2(0.5,0.45);
-  vec2 p = vec2((uv.x-0.5)*1.78 + 0.5, uv.y);
+  vec2 p = vec2((uv.x-0.5)*uAspect + 0.5, uv.y);
 
   // oppressive dim sky, low sun behind the figure
   vec3 col = mix(vec3(0.20,0.07,0.11), vec3(0.03,0.02,0.08), pow(clamp(uv.y,0.0,1.0),0.7));
@@ -99,7 +100,7 @@ void main(){
     float bx = 0.40 + 0.20*hash(vec2(fi,1.0));
     float t = fract(hash(vec2(fi,4.0)) + uTime*(0.05+0.05*hash(vec2(fi,6.0))));
     vec2 cp = vec2(bx + (hash(vec2(fi,2.0))-0.5)*0.15*t, 0.45 - t*0.42);
-    cp.x = (cp.x-0.5)*1.78 + 0.5;
+    cp.x = (cp.x-0.5)*uAspect + 0.5;
     float ch = smoothstep(0.012,0.0, distance(p,cp)) * (1.0-t) * em;
     col = mix(col, vec3(0.03,0.02,0.03), ch);
     col += vec3(1.0,0.45,0.15) * ch * 0.8;             // molten glow on falling chunks
