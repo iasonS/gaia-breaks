@@ -70,20 +70,30 @@ void main(){
   // the titan COLLAPSES and rises: under its own dying weight the knees buckle, the
   // hips sink, the torso folds and it crashes into a broken heap — lies there — then
   // drags itself back up. Heavy and slow, not a tip-over. The fall of 七転び八起き.
-  float tp = 8.5;                                        // one full collapse+rise cycle
-  float tl = fract(uTime/tp + 0.08);
+  float tp = 8.5;                                        // length of one collapse+rise cycle
+  float ph = uTime/tp + 0.08;
+  float ck = floor(ph);                                  // which fall we're on
+  float tl = fract(ph);
   float desp = 0.7 + 0.6*uProgress;
-  float dirn = (mod(floor(uTime/tp+0.08),2.0)<1.0) ? 1.0 : -1.0;   // crumples one way, then the other
-  float c = smoothstep(0.30,0.54,tl) * (1.0 - smoothstep(0.74,0.97,tl)); // 0 standing .. 1 heap
-  c = pow(c, 0.85);
-  float crash  = smoothstep(0.50,0.55,tl) * smoothstep(0.66,0.55,tl);    // ground impact
-  float effort = smoothstep(0.74,0.86,tl) * (1.0 - smoothstep(0.93,1.0,tl)); // heaving back up
-  float tremor = 1.0 - smoothstep(0.0,0.30,tl);          // teetering before it goes
+  // every fall is different: seed direction, depth, timing and fold from the cycle index
+  float r1=hash(vec2(ck,3.0)), r2=hash(vec2(ck,7.0)), r3=hash(vec2(ck,13.0)), r4=hash(vec2(ck,19.0));
+  float dirn = (r1 < 0.5) ? 1.0 : -1.0;                  // which way it goes down (random per fall)
+  float depth = mix(0.5, 1.0, r2);                       // some are full collapses, some half-stumbles
+  float sideBias = mix(0.4, 1.4, r3);                    // sideways vs straight-forward fold
+  float fallAt = mix(0.26, 0.44, r4);                    // when in the cycle it gives out
+  float downDur = mix(0.10, 0.20, r1);                   // how fast it goes down
+  float crashT = fallAt + downDur;
+  float upAt = crashT + mix(0.05, 0.18, r2);             // how long it lies before rising
+  float c = smoothstep(fallAt, crashT, tl) * (1.0 - smoothstep(upAt, upAt + mix(0.16,0.30,r3), tl));
+  c = pow(clamp(c,0.0,1.0), 0.85) * depth;
+  float crash  = smoothstep(crashT-0.04, crashT, tl) * smoothstep(crashT+0.12, crashT, tl);
+  float effort = smoothstep(upAt, upAt+0.12, tl) * (1.0 - smoothstep(upAt+0.22, upAt+0.34, tl));
+  float tremor = 1.0 - smoothstep(0.0, fallAt, tl);      // teetering before it goes
   vec2 ps = p;
   ps.x += sin(uTime*0.7)*0.004 + sin(uTime*9.0)*0.004*tremor;
   ps += crash * vec2(sin(uTime*88.0),cos(uTime*80.0)) * 0.016 * desp;    // impact shake
   // articulated joints lerp from standing to a crumpled heap, folded toward dirn
-  float d = dirn;
+  float d = dirn * sideBias;                                             // fold direction + how sideways
   vec2 LF=vec2(0.45,0.0), RF=vec2(0.55,0.0);                             // feet stay planted
   vec2 LK=mix(vec2(0.47,0.10), vec2(0.45+0.04*d,0.05), c);             // knees buckle outward
   vec2 RK=mix(vec2(0.53,0.10), vec2(0.55+0.04*d,0.05), c);
@@ -121,9 +131,9 @@ void main(){
 
   // dust explodes out where the body crashes into the ground
   {
-    float dl = fract(uTime/tp + 0.08);
-    float hit = smoothstep(0.50,0.55,dl)*smoothstep(0.76,0.55,dl) * desp;
-    float spread = max(0.0, dl-0.52);
+    float dl = tl;
+    float hit = smoothstep(crashT-0.05,crashT,dl)*smoothstep(crashT+0.22,crashT,dl) * desp;
+    float spread = max(0.0, dl-crashT);
     for(int i=0;i<12;i++){
       float fi=float(i);
       float da = (hash(vec2(fi,71.0))-0.5)*2.4;
