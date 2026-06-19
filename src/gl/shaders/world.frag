@@ -6,8 +6,10 @@ uniform float uProgress;
 uniform float uAspect;
 // __COMMON__
 void main(){
-  // slow approach toward the dead world
-  float zoom = 1.0 - 0.18*uProgress;
+  // slow approach toward the dead world, then PLUNGE into it at the end of the
+  // movement — the planet's surface rushes up and we punch through to find the titan.
+  float dive = smoothstep(0.82, 1.0, uProgress);
+  float zoom = (1.0 - 0.18*uProgress) * (1.0 - 0.86*dive);
   vec2 uv = (vUv - vec2(0.5,0.30))*zoom + vec2(0.5,0.30);
   vec2 p = (uv - 0.5); p.x *= uAspect;
 
@@ -130,6 +132,10 @@ void main(){
   col += vec3(1.0,0.8,0.5) * smoothstep(0.045,0.0, sdd) * 2.0;
   float fa = atan(uv.y-sunp.y, uv.x-sunp.x);
   col += vec3(1.0,0.7,0.4) * pow(0.5+0.5*sin(fa*8.0+uTime*0.1),4.0) * smoothstep(0.3,0.0,sdd) * 0.35;
+
+  // punching through the crust: molten light blows out as we dive into the planet
+  col += vec3(1.0,0.45,0.15) * dive*dive * 0.9;
+  col = mix(col, vec3(1.0,0.6,0.25), dive*dive*dive*0.6);
 
   o = vec4(col, 1.0);
 }

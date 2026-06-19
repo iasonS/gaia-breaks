@@ -67,29 +67,31 @@ void main(){
     col += vec3(1.0,0.5,0.2) * smoothstep(sz,0.0, distance(uv,ap)) * tw * (0.4+0.3*layer);
   }
 
-  // the fallen titan STRUGGLES TO RISE: it heaves up, strains, and collapses again —
-  // over and over, harder and more desperate as the drop nears. It never makes it.
-  // (The rising comes later, at the Gate.)
-  float hp = 3.4;                                        // one attempt every ~3.4s
-  float hl = fract(uTime/hp);
-  float effort  = smoothstep(0.0,0.5,hl) * (1.0 - smoothstep(0.55,0.74,hl)); // strain up then give
-  float collapse = smoothstep(0.58,0.68,hl) * smoothstep(0.86,0.70,hl);      // the slam down
-  float desp = 0.6 + 0.8*uProgress;                      // more violent toward the drop
-  float lift = effort * 0.045 * desp;
+  // the titan is losing its footing: it TIPS OVER — leaning further and further as
+  // its balance fails, nearly toppling, then wrenches itself back upright. A colossus
+  // fighting gravity, falling and catching itself, more violent as the drop nears.
+  float tp = 4.2;                                        // one near-fall every ~4.2s
+  float tl = fract(uTime/tp + 0.15);
+  float desp = 0.55 + 0.9*uProgress;                     // bigger topples toward the drop
+  float tip = smoothstep(0.0,0.6,tl) - smoothstep(0.64,0.80,tl);   // lean out... then catch
+  float dirn = (mod(floor(uTime/tp+0.15),2.0)<1.0) ? 1.0 : -1.0;   // alternate which way it lists
+  float ang = tip * 0.45 * dirn * desp;                  // the topple angle (rotates the whole body)
+  float effort = smoothstep(0.80,0.97,tl);               // the wrench back upright
   vec2 ps = p;
-  ps.x += sin(uTime*0.35)*0.006 + sin(uTime*0.11)*0.004; // slow unstable sway
-  ps.y += sin(uTime*0.6)*0.003;                          // labored breathing
-  ps.y -= lift;                                          // heave the whole body up
-  ps.y += collapse * 0.03 * desp;                        // then slam back down
-  ps.x += collapse * sin(uTime*80.0) * 0.01 * desp;      // judder on impact
-  // head un-bows as it strains, drops again on collapse
+  ps.x += sin(uTime*0.7)*0.003;                          // small unstable tremor
+  // rotate the body about its feet so it actually leans and topples
+  vec2 pivot = vec2(0.5, 0.03);
+  float ca=cos(ang), sa=sin(ang);
+  vec2 dlt = ps - pivot;
+  ps = vec2(ca*dlt.x - sa*dlt.y, sa*dlt.x + ca*dlt.y) + pivot;
+  // head bows over the lean, snaps up when it fights upright
   vec2 headEnd = mix(vec2(0.47,0.60), vec2(0.50,0.66), effort);
   float body = 1e9;
   body = min(body, capsule(ps, vec2(0.5,0.50), vec2(0.5,0.16), 0.075)); // torso
-  body = min(body, capsule(ps, vec2(0.5,0.55), headEnd, 0.055));        // head/neck (lifts with effort)
-  // arms push down against the ground during the effort to rise
-  body = min(body, capsule(ps, vec2(0.5,0.49), mix(vec2(0.33,0.28),vec2(0.30,0.14),effort), 0.04)); // left arm
-  body = min(body, capsule(ps, vec2(0.5,0.49), mix(vec2(0.66,0.40),vec2(0.70,0.14),effort), 0.04)); // right arm
+  body = min(body, capsule(ps, vec2(0.5,0.55), headEnd, 0.055));        // head/neck
+  // the arm on the falling side flails out to catch its balance
+  body = min(body, capsule(ps, vec2(0.5,0.49), mix(vec2(0.33,0.28),vec2(0.27-0.05*dirn,0.33),tip), 0.04)); // left arm
+  body = min(body, capsule(ps, vec2(0.5,0.49), mix(vec2(0.66,0.40),vec2(0.73-0.05*dirn,0.33),tip), 0.04)); // right arm
   body = min(body, capsule(ps, vec2(0.47,0.18), vec2(0.43,0.0), 0.045));// left leg
   body = min(body, capsule(ps, vec2(0.53,0.18), vec2(0.58,0.0), 0.045));// right leg
   float mask = smoothstep(0.006,0.0, body);
@@ -107,15 +109,15 @@ void main(){
   col += vec3(1.0,0.4,0.1) * crack * mask * (0.25 + 1.4*uProgress) * (0.7+0.3*sin(uTime*4.0));
   col += vec3(1.0,0.6,0.2) * crack * mask * effort * (0.6+0.9*uProgress);   // strain flare
 
-  // dust + embers blasting out at the feet each time it slams back down
+  // dust dragged up under the foot it staggers onto as it lists over and recovers
   {
-    float dl = fract(uTime/hp);
-    float hit = smoothstep(0.6,0.66,dl)*smoothstep(0.82,0.66,dl) * desp;
+    float dl = fract(uTime/tp + 0.15);
+    float hit = smoothstep(0.45,0.58,dl)*smoothstep(0.80,0.58,dl) * desp;
+    float spread = max(0.0, dl-0.45);
     for(int i=0;i<8;i++){
       float fi=float(i);
-      float ang = (hash(vec2(fi,71.0))-0.5)*2.4;
-      float spread = collapse>0.0 ? dl-0.6 : 0.0;
-      vec2 dp = vec2(0.5 + sin(ang)*(0.04+0.5*max(0.0,spread)), 0.02 + abs(cos(ang))*0.18*max(0.0,spread));
+      float da = (hash(vec2(fi,71.0))-0.5)*2.4;
+      vec2 dp = vec2(0.5 + dirn*0.05 + sin(da)*(0.04+0.5*spread), 0.02 + abs(cos(da))*0.18*spread);
       dp.x = (dp.x-0.5)*uAspect + 0.5;
       col += vec3(0.8,0.45,0.25) * smoothstep(0.02,0.0, distance(p,dp)) * hit;
     }
@@ -164,5 +166,7 @@ void main(){
     col += vec3(0.6,0.28,0.15) * rub * smoothstep(0.02,0.0, abs(uv.y-gline*0.6)) * 0.4;
   }
   col *= smoothstep(0.0,0.04, uv.y);
+  // emerging through the planet's crust: a warm flash on arrival that clears fast
+  col += vec3(1.0,0.55,0.25) * (1.0 - smoothstep(0.0,0.06,uProgress)) * 0.7;
   o = vec4(col, 1.0);
 }
