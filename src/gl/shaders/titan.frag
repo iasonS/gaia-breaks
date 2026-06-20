@@ -70,39 +70,44 @@ void main(){
   // the titan COLLAPSES and rises: under its own dying weight the knees buckle, the
   // hips sink, the torso folds and it crashes into a broken heap — lies there — then
   // drags itself back up. Heavy and slow, not a tip-over. The fall of 七転び八起き.
-  float tp = 8.5;                                        // length of one collapse+rise cycle
-  float ph = uTime/tp + 0.08;
-  float ck = floor(ph);                                  // which fall we're on
+  // the titan FALLS: it strains to hold, then overbalances and PITCHES over with the
+  // weight of a mountain — crashing down, lying broken — then drags itself back up.
+  // Heavy and violent, never a gentle slump. (The true rise of 七転び八起き is the Gate.)
+  float tp = 17.0;                                       // big, rare falls — not a loop of slumps
+  float ph = uTime/tp + 0.05;
+  float ck = floor(ph);
   float tl = fract(ph);
-  float desp = 0.7 + 0.6*uProgress;
-  // every fall is different: seed direction, depth, timing and fold from the cycle index
-  float r1=hash(vec2(ck,3.0)), r2=hash(vec2(ck,7.0)), r3=hash(vec2(ck,13.0)), r4=hash(vec2(ck,19.0));
-  float dirn = (r1 < 0.5) ? 1.0 : -1.0;                  // which way it goes down (random per fall)
-  float depth = mix(0.5, 1.0, r2);                       // some are full collapses, some half-stumbles
-  float sideBias = mix(0.4, 1.4, r3);                    // sideways vs straight-forward fold
-  float fallAt = mix(0.26, 0.44, r4);                    // when in the cycle it gives out
-  float downDur = mix(0.10, 0.20, r1);                   // how fast it goes down
-  float crashT = fallAt + downDur;
-  float upAt = crashT + mix(0.05, 0.18, r2);             // how long it lies before rising
-  float c = smoothstep(fallAt, crashT, tl) * (1.0 - smoothstep(upAt, upAt + mix(0.16,0.30,r3), tl));
-  c = pow(clamp(c,0.0,1.0), 0.85) * depth;
-  float crash  = smoothstep(crashT-0.04, crashT, tl) * smoothstep(crashT+0.12, crashT, tl);
-  float effort = smoothstep(upAt, upAt+0.12, tl) * (1.0 - smoothstep(upAt+0.22, upAt+0.34, tl));
-  float tremor = 1.0 - smoothstep(0.0, fallAt, tl);      // teetering before it goes
+  float desp = 0.75 + 0.5*uProgress;
+  float r1=hash(vec2(ck,3.0)), r2=hash(vec2(ck,7.0)), r3=hash(vec2(ck,13.0));
+  float dirn = (r1<0.5)?1.0:-1.0;                        // which way it goes down (varies per fall)
+  float fallAt = mix(0.34,0.46,r2);                      // the breaking point varies
+  float crashT = fallAt + 0.12;
+  // an accelerating pitch (momentum), a held beat down, then a slow rise
+  float fallP = smoothstep(fallAt, crashT, tl); fallP *= fallP;
+  float upP   = smoothstep(0.74,0.95,tl); upP = 1.0-(1.0-upP)*(1.0-upP);
+  float angAmt = clamp(fallP - upP, 0.0, 1.0);
+  float ang = angAmt * mix(1.0,1.3,r3) * dirn;           // ~60-75deg: it goes all the way DOWN
+  float crash  = smoothstep(crashT-0.03,crashT,tl)*smoothstep(crashT+0.14,crashT,tl);
+  float c = smoothstep(crashT-0.02, crashT+0.05, tl) * (1.0 - smoothstep(0.74,0.90,tl)); // crumple on landing
+  float effort = smoothstep(0.74,0.86,tl)*(1.0-smoothstep(0.93,1.0,tl));                 // strain to rise
+  float tension = smoothstep(0.0,fallAt,tl); float tremor = tension*tension;             // trembling builds
   vec2 ps = p;
-  ps.x += sin(uTime*0.7)*0.004 + sin(uTime*9.0)*0.004*tremor;
-  ps += crash * vec2(sin(uTime*88.0),cos(uTime*80.0)) * 0.016 * desp;    // impact shake
-  // articulated joints lerp from standing to a crumpled heap, folded toward dirn
-  float d = dirn * sideBias;                                             // fold direction + how sideways
-  vec2 LF=vec2(0.45,0.0), RF=vec2(0.55,0.0);                             // feet stay planted
-  vec2 LK=mix(vec2(0.47,0.10), vec2(0.45+0.04*d,0.05), c);             // knees buckle outward
-  vec2 RK=mix(vec2(0.53,0.10), vec2(0.55+0.04*d,0.05), c);
-  vec2 HP=mix(vec2(0.5,0.18),  vec2(0.5+0.06*d,0.11), c);               // hips drop — brought to its knees
-  vec2 SH=mix(vec2(0.5,0.48),  vec2(0.5+0.13*d,0.26), c);               // shoulders slump forward
-  vec2 HD=mix(vec2(0.5,0.62),  vec2(0.5+0.20*d,0.18), c);               // head bows low
-  vec2 LH=mix(vec2(0.33,0.28), vec2(0.30,0.03), c);                     // hands hit the ground
-  vec2 RH=mix(vec2(0.66,0.40), vec2(0.70,0.03), c);
-  HD = mix(HD, HD+vec2(-0.04*d,0.10), effort);           // head lifts as it strains to rise
+  ps.x += sin(uTime*0.7)*0.004 + sin(uTime*24.0)*0.007*tremor;        // teeters harder at the brink
+  ps += crash * vec2(sin(uTime*95.0),cos(uTime*88.0)) * 0.022 * desp; // violent ground-impact shake
+  // pitch the whole body about its feet — a toppling colossus carrying its own weight over
+  vec2 pivot = vec2(0.5,0.03);
+  float ca=cos(ang), sa=sin(ang);
+  vec2 dd2 = ps - pivot;
+  ps = vec2(ca*dd2.x - sa*dd2.y, sa*dd2.x + ca*dd2.y) + pivot;
+  // body crumples a little on landing so it's a broken heap, not a rigid plank
+  vec2 HP=mix(vec2(0.5,0.18), vec2(0.5,0.15), c);
+  vec2 SH=mix(vec2(0.5,0.48), vec2(0.5+0.04*dirn,0.40), c);
+  vec2 HD=mix(vec2(0.5,0.62), vec2(0.5+0.08*dirn,0.50), c);
+  HD = mix(HD, HD+vec2(0.0,0.07), effort);               // head lifts as it strains upright
+  vec2 LK=vec2(0.47,0.10), RK=vec2(0.53,0.10);
+  vec2 LF=vec2(0.45,0.0),  RF=vec2(0.55,0.0);
+  vec2 LH=mix(vec2(0.33,0.28), vec2(0.31,0.34), c);      // arms fling out to brace
+  vec2 RH=mix(vec2(0.66,0.40), vec2(0.69,0.34), c);
   float body = 1e9;
   body = min(body, capsule(ps, HP, SH, 0.075));          // torso
   body = min(body, capsule(ps, SH, HD, 0.05));           // neck/head
