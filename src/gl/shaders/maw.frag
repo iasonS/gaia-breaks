@@ -5,6 +5,10 @@ uniform float uTime;
 uniform float uProgress;
 uniform float uAspect;
 // __COMMON__
+float capsule(vec2 p, vec2 a, vec2 b, float r){
+  vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);
+  return length(pa-ba*h)-r;
+}
 void main(){
   // plunge: accelerate inward through the movement; the second half is a real dive
   float plunge = smoothstep(0.5,1.0,uProgress);          // 0 until halfway, then dives
@@ -72,6 +76,33 @@ void main(){
   // black core with a lensing wobble (event horizon breathing)
   float core = 0.165 + 0.012*sin(uTime*1.3) + 0.01*noise(vec2(ang*2.0,uTime*0.5));
   col *= smoothstep(core,core+0.035,r);
+
+  // THE TITAN, dragged in from its fall — tumbling toward the core, stretched by the pull,
+  // its heart the last light before the void swallows it. Drawn over the void so the lone
+  // falling being reads against the black. (the through-line continues)
+  float present = smoothstep(0.48, 0.0, uProgress);        // sinks in through the drop, starkly visible in the breakdown calm, then gone
+  {
+    float fallIn = 1.0 - present;                          // 0 at edge .. 1 consumed
+    vec2 fc = mix(vec2(0.10,0.06), vec2(0.0,0.0), fallIn);  // tumbles in toward the core, over the black
+    float ta = 0.8 + uTime*0.5 + fallIn*7.0;               // tumbling helplessly
+    float cs=cos(ta), sn=sin(ta);
+    vec2 lp = vec2(cs*(p.x-fc.x)-sn*(p.y-fc.y), sn*(p.x-fc.x)+cs*(p.y-fc.y));
+    lp.y /= mix(1.0, 2.6, fallIn);                         // spaghettified, stretched toward the core
+    lp /= mix(0.24, 0.14, fallIn);                         // big as it enters, shrinks as it recedes
+    float fig=1e9;
+    fig=min(fig,capsule(lp, vec2(0.0,0.4), vec2(0.0,-0.2), 0.16)); // torso
+    fig=min(fig,capsule(lp, vec2(0.0,0.4), vec2(0.0,0.72), 0.12)); // head
+    fig=min(fig,capsule(lp, vec2(0.0,0.2), vec2(-0.45,-0.1),0.09));// arm
+    fig=min(fig,capsule(lp, vec2(0.0,0.2), vec2(0.45,-0.1), 0.09));// arm
+    fig=min(fig,capsule(lp, vec2(0.0,-0.2),vec2(-0.2,-0.85),0.1)); // leg
+    fig=min(fig,capsule(lp, vec2(0.0,-0.2),vec2(0.2,-0.85), 0.1)); // leg
+    // a luminous falling being — bright cold outline against the void
+    col += vec3(0.6,0.8,1.0) * smoothstep(0.05,0.0,abs(fig)) * present * 1.4;         // glowing outline
+    col += vec3(0.4,0.6,1.0) * smoothstep(0.13,0.0,fig) * present * 0.4;              // soft aura
+    float beatM = pow(0.5+0.5*sin(uTime*2.6),6.0)+0.7*pow(0.5+0.5*sin(uTime*2.6-0.7),6.0);
+    float hdm = length(lp - vec2(0.0,0.12));
+    col += vec3(1.0,0.55,0.2) * smoothstep(0.24,0.0,hdm) * (0.45+0.7*beatM) * present * 2.0; // heart, still beating
+  }
 
   // Gargantua lensing: a thin bright photon ring hugging the shadow + disk light
   // bent up and over the top of the hole (the iconic halo).
