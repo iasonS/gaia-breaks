@@ -97,6 +97,12 @@ void main(){
   float rim = smoothstep(R+0.025,R,dd) * smoothstep(R-0.03,R,dd);
   col += vec3(0.5,0.3,0.8) * rim * (0.3 + lit) * 1.2;
 
+  // THE HEART of the world — the same beating self-preservation core that becomes the
+  // Titan's heart when we dive through. It glows at the planet's centre and never stops.
+  float heartd = distance(p, wc);
+  col += vec3(1.0,0.55,0.2) * smoothstep(0.14,0.0,heartd) * (0.35+0.6*beat) * disc * 1.3;
+  col += vec3(1.0,0.45,0.15) * smoothstep(0.07,0.0,heartd) * (0.5+0.5*beat) * disc;   // hot centre
+
   // meteor impacts hammering the dead surface: flash + expanding shockwave ring
   {
     float ip = 2.3, ik = floor(mt/ip), il = fract(mt/ip);

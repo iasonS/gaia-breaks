@@ -89,5 +89,12 @@ void main(){
   col += mix(vec3(0.4,0.5,0.7), vec3(1.0,0.85,0.6), rise) * frim * (0.35+0.85*rise); // dawn rim = strength
   col += vec3(0.85,0.72,0.5) * smoothstep(0.10,0.0, fig) * rise * 0.14 * (0.75+0.25*sin(uTime*0.7)); // resolve aura
 
+  // THE HEART, still beating in the risen figure's chest — the same core that beat in the
+  // world, the Titan and the void. It made it through. (the through-line resolves here)
+  float beat = pow(0.5+0.5*sin(uTime*2.6),6.0) + 0.7*pow(0.5+0.5*sin(uTime*2.6-0.7),6.0);
+  float ghd = distance(f, vec2(0.5,0.40));
+  col += vec3(1.0,0.6,0.25) * smoothstep(0.03,0.0,ghd) * (0.4+0.6*beat) * rise * 1.4;   // heart core
+  col += vec3(1.0,0.5,0.2)  * smoothstep(0.08,0.0,ghd) * (0.3+0.4*beat) * rise * 0.6;    // glow
+
   o = vec4(col,1.0);
 }

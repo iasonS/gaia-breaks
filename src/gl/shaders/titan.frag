@@ -134,6 +134,14 @@ void main(){
   col += vec3(1.0,0.5,0.15) * crack * mask * c * (0.8+1.0*uProgress);       // cracks blow open as it's crushed
   col += vec3(1.0,0.7,0.35) * mask * crash * (1.2+1.5*uProgress);           // molten flash on impact
 
+  // THE HEART — self-preservation — beating in its chest. The same heart that beats in
+  // the dead world, in the void, and in the risen figure. It never stops. (the through-line)
+  float beat = pow(0.5+0.5*sin(uTime*2.6),6.0) + 0.7*pow(0.5+0.5*sin(uTime*2.6-0.7),6.0);
+  vec2 chest = mix(HP, SH, 0.55);                          // rides the body through fall + rise
+  float hd = distance(ps, chest);
+  col += vec3(1.0,0.55,0.2) * smoothstep(0.045,0.0,hd) * (0.45+0.7*beat) * (0.4+0.6*mask) * 1.4; // core
+  col += vec3(1.0,0.4,0.12) * smoothstep(0.11,0.0,hd) * (0.3+0.5*beat) * 0.5;                    // glow
+
   // dust explodes out where the body crashes into the ground
   {
     float dl = tl;
