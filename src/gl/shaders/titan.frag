@@ -5,37 +5,12 @@ uniform float uTime;
 uniform float uProgress;
 uniform float uAspect;
 // __COMMON__
-// --- the titan is a real 3D body: articulated capsules raymarched with normals,
-// --- backlit by the dying sun, molten cracks wrapping the actual form
-float cap3(vec3 p, vec3 a, vec3 b, float r){
-  vec3 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);
+float capsule(vec2 p, vec2 a, vec2 b, float r){
+  vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);
   return length(pa-ba*h)-r;
 }
-mat3 rotAxis(vec3 x, float t){
-  float c=cos(t), s=sin(t), ic=1.0-c;
-  return mat3(c+x.x*x.x*ic,     x.x*x.y*ic-x.z*s, x.x*x.z*ic+x.y*s,
-              x.y*x.x*ic+x.z*s, c+x.y*x.y*ic,     x.y*x.z*ic-x.x*s,
-              x.z*x.x*ic-x.y*s, x.z*x.y*ic+x.x*s, c+x.z*x.z*ic);
-}
-vec3 J_HP,J_SH,J_HD,J_LK,J_RK,J_LF,J_RF,J_LH,J_RH;   // posed joints (set in main)
-float bodySDF(vec3 q){
-  float d =        cap3(q,J_HP,J_SH,0.075);   // torso
-  d = min(d, cap3(q,J_SH,J_HD,0.05));         // neck/head
-  d = min(d, cap3(q,J_SH,J_LH,0.04));         // arms
-  d = min(d, cap3(q,J_SH,J_RH,0.04));
-  d = min(d, cap3(q,J_HP,J_LK,0.045));        // thighs
-  d = min(d, cap3(q,J_HP,J_RK,0.045));
-  d = min(d, cap3(q,J_LK,J_LF,0.04));         // shins
-  d = min(d, cap3(q,J_RK,J_RF,0.04));
-  d += (noise(q.xy*14.0)+noise(q.zy*14.0)-1.0)*0.007;  // eroded, pitted hide
-  return d;
-}
-vec3 bodyN(vec3 q){
-  vec2 e=vec2(0.0045,0.0);
-  return normalize(vec3(bodySDF(q+e.xyy)-bodySDF(q-e.xyy),
-                        bodySDF(q+e.yxy)-bodySDF(q-e.yxy),
-                        bodySDF(q+e.yyx)-bodySDF(q-e.yyx)));
-}
+// full articulated body SDF at a sample point (joints captured from main)
+#define BODY(q) min(min(min(capsule(q,HP,SH,0.075),capsule(q,SH,HD,0.05)),min(capsule(q,SH,LH,0.04),capsule(q,SH,RH,0.04))),min(min(capsule(q,HP,LK,0.045),capsule(q,HP,RK,0.045)),min(capsule(q,LK,LF,0.04),capsule(q,RK,RF,0.04))))
 // blocky ruined skyline sitting on the horizon
 float skyline(vec2 uv, float base, float scale, float seed){
   float seg = floor(uv.x*scale);
@@ -156,29 +131,27 @@ void main(){
   effort = max(effort, tryP);
   float ang = (angAmt + bounce) * maxAng * dirn + 0.10*stagLean*upright;
   float tension = smoothstep(0.0,fallAt,tl); float tremor = tension*tension;             // trembling builds
-  // camera shakes ride the ray origin now (the body is a true 3D form)
-  vec2 camOfs = vec2(0.0);
-  camOfs.x += sin(uTime*0.7)*0.004 + sin(uTime*24.0)*0.007*tremor;        // teeters harder at the brink
-  camOfs += crash * vec2(sin(uTime*95.0),cos(uTime*88.0)) * 0.022 * desp; // violent ground-impact shake
-  camOfs += stag * vec2(sin(uTime*82.0),cos(uTime*74.0)) * 0.008;         // jolt on the hits it holds against
-  camOfs.y += 0.016 * desp * sin(since*11.0) * exp(-since*3.0) * step(0.001, since) * step(0.5,fallP);
-  // each fall topples along its OWN axis in depth; the LAST one comes down TOWARD us
-  float psi = ((dirn>0.0)?0.0:3.14159) + (r2-0.5)*1.1;
-  psi = mix(psi, -1.5708 + (r2-0.5)*0.4, finalFall);
-  vec3 fallDir = vec3(cos(psi), 0.0, sin(psi));
-  float fdx = fallDir.x;                                 // screen-x component (dust / ground ring)
-  vec3 axisR = normalize(cross(vec3(0.0,1.0,0.0), fallDir) + 1e-5);
+  vec2 ps = p;
+  ps.x += sin(uTime*0.7)*0.004 + sin(uTime*24.0)*0.007*tremor;        // teeters harder at the brink
+  ps += crash * vec2(sin(uTime*95.0),cos(uTime*88.0)) * 0.022 * desp; // violent ground-impact shake
+  ps += stag * vec2(sin(uTime*82.0),cos(uTime*74.0)) * 0.008;         // jolt on the hits it holds against
+  ps.y += 0.016 * desp * sin(since*11.0) * exp(-since*3.0) * step(0.001, since) * step(0.5,fallP); // the camera itself drops with the hit
+  // pitch the whole body about its feet — a toppling colossus carrying its own weight over
+  vec2 pivot = vec2(0.5,0.03);
+  float ca=cos(ang), sa=sin(ang);
+  vec2 dd2 = ps - pivot;
+  ps = vec2(ca*dd2.x - sa*dd2.y, sa*dd2.x + ca*dd2.y) + pivot;
   // before the break: knees buckle and the hips sag — you SEE the weight win
   float buckle = tremor * (1.0 - fallP) * (0.5+0.5*r4);
   // body crumples a little on landing so it's a broken heap, not a rigid plank
-  vec3 HP=mix(vec3(0.5,0.18 - 0.020*buckle,0.0), vec3(0.5,0.15,0.0), c);
-  vec3 SH=mix(vec3(0.5,0.48 - 0.030*buckle,0.0), vec3(0.5,0.40,0.0)+fallDir*0.04, c);
-  vec3 HD=mix(vec3(0.5,0.62 - 0.035*buckle,0.0), vec3(0.5,0.50,0.0)+fallDir*0.08, c);
-  HD = mix(HD, HD+vec3(0.0,0.07,0.0), effort);           // head lifts as it strains upright
-  vec3 LK=vec3(0.47-0.014*buckle,0.10,0.012), RK=vec3(0.53+0.014*buckle,0.10,-0.012);
-  vec3 LF=vec3(0.45,0.0,0.02),  RF=vec3(0.55,0.0,-0.02);
-  vec3 LH=mix(vec3(0.33+0.03*(r4-0.5),0.28,0.03), vec3(0.31,0.34,0.05), c);  // stance varies per fall
-  vec3 RH=mix(vec3(0.66,0.40+0.05*(r1-0.5),-0.02), vec3(0.69,0.34,-0.04), c);
+  vec2 HP=mix(vec2(0.5,0.18 - 0.020*buckle), vec2(0.5,0.15), c);
+  vec2 SH=mix(vec2(0.5,0.48 - 0.030*buckle), vec2(0.5+0.04*dirn,0.40), c);
+  vec2 HD=mix(vec2(0.5,0.62 - 0.035*buckle), vec2(0.5+0.08*dirn,0.50), c);
+  HD = mix(HD, HD+vec2(0.0,0.07), effort);               // head lifts as it strains upright
+  vec2 LK=vec2(0.47-0.014*buckle,0.10), RK=vec2(0.53+0.014*buckle,0.10);
+  vec2 LF=vec2(0.45,0.0),  RF=vec2(0.55,0.0);
+  vec2 LH=mix(vec2(0.33+0.03*(r4-0.5),0.28), vec2(0.31,0.34), c);    // stance varies per fall
+  vec2 RH=mix(vec2(0.66,0.40+0.05*(r1-0.5)), vec2(0.69,0.34), c);
   // ALIVE: it breathes, pants when down, shifts its weight, its head wanders and
   // sinks with the weariness — never a held pose, never a statue
   float br = sin(uTime*0.9 + 0.4*sin(uTime*0.13));       // breath, slightly irregular
@@ -188,82 +161,65 @@ void main(){
   HP.x += 0.007*sin(uTime*0.31 + r1*6.0);                // weight shifting foot to foot
   SH.x += 0.005*sin(uTime*0.27 + 2.0);
   HD.x += 0.010*sin(uTime*0.23 + r4*6.0);                // head slowly wandering
-  HD.z += 0.028*sin(uTime*0.17 + r1*4.0);                // ...and TURNING, in depth
-  SH.z += 0.012*sin(uTime*0.21 + 1.0);                   // shoulders counter-rotate slightly
   // one hand guards the burning heart; the other hangs, riding the breath
-  LH = mix(LH, mix(HP,SH,0.55) + vec3(-0.07, 0.01+0.010*br, 0.06), 0.5*(1.0-fallP)*(1.0-c));
+  LH = mix(LH, mix(HP,SH,0.55) + vec2(-0.07, 0.01+0.010*br), 0.5*(1.0-fallP)*(1.0-c));
   RH.y += 0.012*br*(1.0-fallP);
   // and it FLINCHES from the lightning — recoiling, half-guarding: a creature, not a loop
   float flinch = lflash * (1.0-fallP) * (1.0-c);
   float away = (lx<0.5) ? 1.0 : -1.0;
   HD.x += 0.020*away*flinch; SH.x += 0.010*away*flinch;
-  LH += vec3(-0.02, 0.09, 0.02)*flinch; RH += vec3(0.03, 0.12, -0.02)*flinch;
+  LH += vec2(-0.02, 0.09)*flinch; RH += vec2(0.03, 0.12)*flinch;
   // INERTIA: the upper body lags the pitch, then whips past and folds on impact —
   // the joints articulate through the fall instead of riding it like a plank
-  float bend = maxAng * (-0.30*lagAmt + 0.45*crash);
-  mat3 BM  = rotAxis(axisR, bend);
-  mat3 BM2 = rotAxis(axisR, bend*1.6);
-  SH = HP + BM*(SH-HP);
-  HD = HP + BM2*(HD-HP);                                 // the head whips hardest
+  float bend = maxAng * dirn * (-0.30*lagAmt + 0.45*crash);
+  float cb=cos(bend), sb=sin(bend);
+  mat2 B = mat2(cb,-sb,sb,cb);
+  float b2=bend*1.6, cb2=cos(b2), sb2=sin(b2);
+  SH = HP + B*(SH-HP);
+  HD = HP + mat2(cb2,-sb2,sb2,cb2)*(HD-HP);              // the head whips hardest
   // arms trail UP against the fall, flailing, then slam down with the crash
-  vec3 flail = vec3(0.0,(0.10+0.06*r2)*lagAmt,0.0) + (fallDir*0.05 + vec3(0.0,-0.08,0.0))*crash;
-  LH = HP + BM*(LH-HP) + flail + vec3(-0.02, 0.020, 0.015)*sin(uTime*11.0)*lagAmt;
-  RH = HP + BM*(RH-HP) + flail + vec3( 0.02,-0.015,-0.015)*sin(uTime*13.0)*lagAmt;
-  // pitch the whole body about its feet, along this fall's own axis in depth
-  vec3 pivot3 = vec3(0.5,0.03,0.0);
-  mat3 FM = rotAxis(axisR, ang);
-  J_HP=pivot3+FM*(HP-pivot3); J_SH=pivot3+FM*(SH-pivot3); J_HD=pivot3+FM*(HD-pivot3);
-  J_LK=pivot3+FM*(LK-pivot3); J_RK=pivot3+FM*(RK-pivot3);
-  J_LF=pivot3+FM*(LF-pivot3); J_RF=pivot3+FM*(RF-pivot3);
-  J_LH=pivot3+FM*(LH-pivot3); J_RH=pivot3+FM*(RH-pivot3);
+  vec2 flail = vec2(0.0,(0.10+0.06*r2)*lagAmt) + vec2(0.05*dirn,-0.08)*crash;
+  LH = HP + B*(LH-HP) + flail + vec2(-0.02, 0.020)*sin(uTime*11.0)*lagAmt;
+  RH = HP + B*(RH-HP) + flail + vec2( 0.02,-0.015)*sin(uTime*13.0)*lagAmt;
+  // motion smear: ghost silhouettes trail the body while it's pitching fast
+  float smear = max(lagAmt, crash*0.7);
+  if (smear > 0.02){
+    float ag1 = ang - dirn*maxAng*0.16*smear;
+    float ag2 = ang - dirn*maxAng*0.32*smear;
+    vec2 pg1 = vec2(cos(ag1)*dd2.x - sin(ag1)*dd2.y, sin(ag1)*dd2.x + cos(ag1)*dd2.y) + pivot;
+    vec2 pg2 = vec2(cos(ag2)*dd2.x - sin(ag2)*dd2.y, sin(ag2)*dd2.x + cos(ag2)*dd2.y) + pivot;
+    float g1 = BODY(pg1), g2 = BODY(pg2);
+    col = mix(col, vec3(0.025,0.02,0.035), smoothstep(0.006,0.0,g1)*0.32*smear);
+    col += vec3(1.0,0.45,0.18) * smoothstep(0.015,0.0,abs(g1)) * 0.30*smear;
+    col = mix(col, vec3(0.025,0.02,0.035), smoothstep(0.006,0.0,g2)*0.18*smear);
+    col += vec3(1.0,0.40,0.15) * smoothstep(0.015,0.0,abs(g2)) * 0.16*smear;
+  }
+  float body = BODY(ps);
+  float mask = smoothstep(0.006,0.0, body);
+  mask *= step(noise(ps*22.0), 0.93);                      // eroded pitting
+  // missing chunks, worsening as the titan dies
+  mask *= 1.0 - (0.4+0.4*uProgress)*smoothstep(0.5,0.82, noise(ps*6.0+1.0));
+  col = mix(col, vec3(0.02,0.015,0.03), mask);
 
-  // raymarch the colossus: a real volume, backlit by the dying sun
-  vec3 ro = vec3(0.5 + camOfs.x, 0.35 + camOfs.y, -2.4);
-  vec3 rdir = normalize(vec3(p.x-0.5, p.y-0.35, 2.4));
+  // molten cracks spreading across the body as it dies (grow with progress)
+  float cn = noise(ps*16.0 + 2.0);
+  float crack = smoothstep(0.46,0.5,cn)*smoothstep(0.56,0.52,cn);
+  float cn2 = noise(ps*7.0 + uTime*0.03);
+  crack += smoothstep(0.5,0.52,cn2)*smoothstep(0.6,0.55,cn2)*0.7;
+  // the cracks flare from the strain of trying to rise, then gutter on collapse —
+  // but the body STAYS a dark colossus; the glow lives in the wounds, never floods it
+  col += vec3(1.0,0.4,0.1) * crack * mask * (0.25 + 0.55*uProgress) * (0.7+0.3*sin(uTime*4.0));
+  col += vec3(1.0,0.6,0.2) * crack * mask * effort * (0.5+0.5*uProgress);   // strain flare
+  col += vec3(1.0,0.5,0.15) * crack * mask * c * (0.6+0.5*uProgress);       // cracks blow open as it's crushed
+  col += vec3(1.0,0.7,0.35) * (0.25+0.75*crack) * mask * crash * (0.7+0.6*uProgress); // impact flash through the wounds
+
+  // THE HEART — self-preservation — beating in its chest. The same heart that beats in
+  // the dead world, in the void, and in the risen figure. It never stops. (the through-line)
   float beat = pow(0.5+0.5*sin(uTime*2.6),6.0) + 0.7*pow(0.5+0.5*sin(uTime*2.6-0.7),6.0);
-  vec3 chest3 = mix(J_HP, J_SH, 0.55);                     // rides the body through fall + rise
-  float tm = 1.0, mask = 0.0, crack = 0.0;
-  vec3 q = ro;
-  for (int i=0;i<72;i++){
-    q = ro + rdir*tm;
-    float d = bodySDF(q);
-    if (d < 0.0035){ mask = 1.0; break; }
-    tm += d*0.85;
-    if (tm > 4.2) break;
-  }
-  if (mask > 0.5){
-    vec3 n = bodyN(q);
-    // molten cracks wrap the actual 3D form (triplanar bands)
-    float cn = noise(q.xy*16.0+2.0)*abs(n.z) + noise(q.zy*16.0+2.0)*abs(n.x) + noise(q.xz*16.0+2.0)*abs(n.y);
-    crack = smoothstep(0.40,0.48,cn)*smoothstep(0.60,0.52,cn);
-    float cn2 = noise(q.xy*7.0 + uTime*0.03) + noise(q.zy*7.0)*0.5;
-    crack += smoothstep(0.68,0.74,cn2)*smoothstep(0.9,0.78,cn2)*0.7;
-    // dark volcanic hide, lit by the world — it STAYS a dark colossus
-    vec3 base = vec3(0.020,0.015,0.030)*(0.35+0.65*noise(q.xy*9.0+q.z*4.0));
-    vec3 sunD = normalize(vec3(0.0,-0.10,1.0));            // the low sun BEHIND it
-    float fres = pow(1.0-max(dot(n,-rdir),0.0), 2.6);
-    float back = max(dot(n, sunD), 0.0);
-    float top  = max(n.y, 0.0);
-    col = base;
-    col += vec3(0.14,0.06,0.10)*top*0.5;                            // dim sky fill
-    col += vec3(1.0,0.50,0.25)*fres*(0.35+0.65*back)*1.25;          // burning rim from the sun behind
-    col += vec3(1.0,0.40,0.10)*crack*(0.30+0.55*uProgress)*(0.7+0.3*sin(uTime*4.0)); // wounds glow
-    col += vec3(1.0,0.60,0.20)*crack*effort*(0.5+0.5*uProgress);    // flare with the strain to rise
-    col += vec3(1.0,0.50,0.15)*crack*c*(0.6+0.5*uProgress);         // blown open by the crash
-    col += vec3(1.0,0.70,0.35)*(0.25+0.75*crack)*crash*(0.7+0.6*uProgress); // impact flash in the wounds
-    // THE HEART — self-preservation — glows from INSIDE the chest, through the wounds.
-    // The same heart that beats in the dead world, the void, and the risen figure.
-    float hd3 = distance(q, chest3);
-    col += vec3(1.0,0.50,0.18)*exp(-hd3*8.0)*(0.5+0.8*beat)*(0.45+0.75*crack);
-  }
-  // the heart's halo bleeds past the silhouette (closest ray approach to the chest)
-  {
-    vec3 w = chest3 - ro;
-    float tc = clamp(dot(w, rdir), 0.0, 4.2);
-    float dray = length(w - rdir*tc);
-    float occl = (mask > 0.5 && tm < tc) ? 0.25 : 1.0;
-    col += vec3(1.0,0.50,0.18) * (0.35+0.65*beat) / (1.0 + 1400.0*dray*dray) * 0.55 * occl;
-  }
+  vec2 chest = mix(HP, SH, 0.55);                          // rides the body through fall + rise
+  float hd = distance(ps, chest);
+  col += vec3(1.0,0.55,0.2) * smoothstep(0.045,0.0,hd) * (0.45+0.7*beat) * (0.4+0.6*mask) * 1.4; // core
+  col += vec3(1.0,0.4,0.12) * smoothstep(0.11,0.0,hd) * (0.3+0.5*beat) * 0.5;                    // glow
 
   // dust explodes out where the body crashes into the ground
   {
@@ -273,13 +229,13 @@ void main(){
     for(int i=0;i<12;i++){
       float fi=float(i);
       float da = (hash(vec2(fi,71.0))-0.5)*2.4;
-      vec2 dp = vec2(0.5 + fdx*(0.12+0.8*spread) + sin(da)*(0.05+0.7*spread), 0.02 + abs(cos(da))*0.26*spread);
+      vec2 dp = vec2(0.5 + dirn*(0.12+0.8*spread) + sin(da)*(0.05+0.7*spread), 0.02 + abs(cos(da))*0.26*spread);
       dp.x = (dp.x-0.5)*uAspect + 0.5;
       col += vec3(0.85,0.5,0.28) * smoothstep(0.024,0.0, distance(p,dp)) * hit;
     }
     // the ground itself cracks outward from where it lands — a shockwave along the earth
     float swr = since*0.55;
-    float gring = smoothstep(0.014,0.0, abs(distance(p, vec2(0.5+fdx*0.34,0.035)) - swr))
+    float gring = smoothstep(0.014,0.0, abs(distance(p, vec2(0.5+dirn*0.34,0.035)) - swr))
                 * exp(-since*2.2) * step(0.001,since) * step(0.5,fallP);
     col += vec3(1.0,0.55,0.25) * gring * desp * 1.1;
   }
@@ -313,6 +269,10 @@ void main(){
     col = mix(col, vec3(0.03,0.02,0.03), ch);
     col += vec3(1.0,0.45,0.15) * ch * 0.8;             // molten glow on falling chunks
   }
+
+  // warm rim light along the figure's edge from the sun behind
+  float rim = smoothstep(0.02,0.0, abs(body)) * smoothstep(0.55,0.0,sd);
+  col += vec3(1.0,0.5,0.25) * rim * 0.9;
 
   // foreground ground with scattered rubble
   float gline = 0.04 + 0.015*noise(vec2(uv.x*30.0, 0.0));

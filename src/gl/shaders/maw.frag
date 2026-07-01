@@ -93,7 +93,9 @@ void main(){
   // THE TITAN, dragged in from its fall — tumbling toward the core, stretched by the pull,
   // its heart the last light before the void swallows it. Drawn over the void so the lone
   // falling being reads against the black. (the through-line continues)
-  float present = smoothstep(0.48, 0.0, uProgress);        // sinks in through the drop, starkly visible in the breakdown calm, then gone
+  // it only appears AFTER the titan movement has fully faded — one titan at a time:
+  // the wreck we just watched is the figure now falling into the void
+  float present = smoothstep(0.025, 0.06, uProgress) * (1.0 - smoothstep(0.30, 0.48, uProgress));
   present = max(present, 0.85*nad);                        // in the nadir it lingers — the heart refuses to go out
   {
     float fallIn = 1.0 - present;                          // 0 at edge .. 1 consumed
