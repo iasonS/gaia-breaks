@@ -89,20 +89,30 @@ void main(){
   float fallP = fv*fv;
   float upP   = smoothstep(0.74,0.95,tl); upP = 1.0-(1.0-upP)*(1.0-upP);
   float angAmt = clamp(fallP - upP, 0.0, 1.0);
+  // some falls it FIGHTS OFF: a deep stagger, held, forced back upright — every fall
+  // is a battle it might win, not a scheduled collapse
+  float resist = step(r4, 0.30);                         // ~1 in 3 it refuses to go down
+  float live = 1.0 - resist;                             // gates everything impact-related
+  float stagger = smoothstep(fallAt, fallAt+0.07, tl) * (1.0 - smoothstep(fallAt+0.10, fallAt+0.22, tl));
+  angAmt = mix(angAmt, stagger*0.32, resist);
   float maxAng = mix(1.0,1.3,r3);                        // ~60-75deg: it goes all the way DOWN
   // MASS: it slams past the ground and rebounds once before settling — momentum, not keyframes
   float since = max(0.0, tl - crashT) * tp;              // seconds since impact
-  float bounce = sin(since*6.5) * exp(-since*2.4) * 0.13 * step(0.5, fallP);
+  float bounce = sin(since*6.5) * exp(-since*2.4) * 0.13 * step(0.5, fallP) * live;
+  float lagAmt = 4.0*fv*(1.0-fv) * (1.0-0.7*resist);     // how fast it's pitching right now
+  float crash  = smoothstep(crashT-0.03,crashT,tl)*smoothstep(crashT+0.14,crashT,tl) * live;
+  float c = smoothstep(crashT-0.02, crashT+0.05, tl) * (1.0 - smoothstep(0.74,0.90,tl)) * live; // crumple on landing
+  float effort = smoothstep(0.74,0.86,tl)*(1.0-smoothstep(0.93,1.0,tl)) * live;                 // strain to rise
+  // while down it TRIES: a first push at rising that fails and drops back — then the real one
+  float tryP = smoothstep(0.58,0.63,tl)*(1.0-smoothstep(0.63,0.70,tl)) * live * step(0.5,fallP);
+  angAmt -= 0.11*tryP;
+  effort = max(effort, tryP);
   float ang = (angAmt + bounce) * maxAng * dirn;
-  float lagAmt = 4.0*fv*(1.0-fv);                        // how fast it's pitching right now
-  float crash  = smoothstep(crashT-0.03,crashT,tl)*smoothstep(crashT+0.14,crashT,tl);
-  float c = smoothstep(crashT-0.02, crashT+0.05, tl) * (1.0 - smoothstep(0.74,0.90,tl)); // crumple on landing
-  float effort = smoothstep(0.74,0.86,tl)*(1.0-smoothstep(0.93,1.0,tl));                 // strain to rise
   float tension = smoothstep(0.0,fallAt,tl); float tremor = tension*tension;             // trembling builds
   vec2 ps = p;
   ps.x += sin(uTime*0.7)*0.004 + sin(uTime*24.0)*0.007*tremor;        // teeters harder at the brink
   ps += crash * vec2(sin(uTime*95.0),cos(uTime*88.0)) * 0.022 * desp; // violent ground-impact shake
-  ps.y += 0.016 * desp * sin(since*11.0) * exp(-since*3.0) * step(0.001, since); // the camera itself drops with the hit
+  ps.y += 0.016 * desp * live * sin(since*11.0) * exp(-since*3.0) * step(0.001, since); // the camera itself drops with the hit
   // pitch the whole body about its feet — a toppling colossus carrying its own weight over
   vec2 pivot = vec2(0.5,0.03);
   float ca=cos(ang), sa=sin(ang);
@@ -119,6 +129,23 @@ void main(){
   vec2 LF=vec2(0.45,0.0),  RF=vec2(0.55,0.0);
   vec2 LH=mix(vec2(0.33+0.03*(r4-0.5),0.28), vec2(0.31,0.34), c);    // stance varies per fall
   vec2 RH=mix(vec2(0.66,0.40+0.05*(r1-0.5)), vec2(0.69,0.34), c);
+  // ALIVE: it breathes, pants when down, shifts its weight, its head wanders and
+  // sinks with the weariness — never a held pose, never a statue
+  float br = sin(uTime*0.9 + 0.4*sin(uTime*0.13));       // breath, slightly irregular
+  float pant = c * (0.5+0.5*sin(uTime*4.2));             // heaving hard while down
+  SH.y += 0.008*br + 0.012*pant;
+  HD.y += 0.005*br + 0.010*pant - 0.035*tremor*(1.0-effort); // head hangs as weariness builds
+  HP.x += 0.007*sin(uTime*0.31 + r1*6.0);                // weight shifting foot to foot
+  SH.x += 0.005*sin(uTime*0.27 + 2.0);
+  HD.x += 0.010*sin(uTime*0.23 + r4*6.0);                // head slowly wandering
+  // one hand guards the burning heart; the other hangs, riding the breath
+  LH = mix(LH, mix(HP,SH,0.55) + vec2(-0.07, 0.01+0.010*br), 0.5*(1.0-fallP)*(1.0-c));
+  RH.y += 0.012*br*(1.0-fallP);
+  // and it FLINCHES from the lightning — recoiling, half-guarding: a creature, not a loop
+  float flinch = lflash * (1.0-fallP) * (1.0-c);
+  float away = (lx<0.5) ? 1.0 : -1.0;
+  HD.x += 0.020*away*flinch; SH.x += 0.010*away*flinch;
+  LH += vec2(-0.02, 0.09)*flinch; RH += vec2(0.03, 0.12)*flinch;
   // INERTIA: the upper body lags the pitch, then whips past and folds on impact —
   // the joints articulate through the fall instead of riding it like a plank
   float bend = maxAng * dirn * (-0.30*lagAmt + 0.45*crash);
@@ -174,7 +201,7 @@ void main(){
   // dust explodes out where the body crashes into the ground
   {
     float dl = tl;
-    float hit = smoothstep(crashT-0.05,crashT,dl)*smoothstep(crashT+0.22,crashT,dl) * desp;
+    float hit = smoothstep(crashT-0.05,crashT,dl)*smoothstep(crashT+0.22,crashT,dl) * desp * live;
     float spread = max(0.0, dl-crashT);
     for(int i=0;i<12;i++){
       float fi=float(i);
@@ -186,7 +213,7 @@ void main(){
     // the ground itself cracks outward from where it lands — a shockwave along the earth
     float swr = since*0.55;
     float gring = smoothstep(0.014,0.0, abs(distance(p, vec2(0.5+dirn*0.34,0.035)) - swr))
-                * exp(-since*2.2) * step(0.001,since) * step(0.5,fallP);
+                * exp(-since*2.2) * step(0.001,since) * step(0.5,fallP) * live;
     col += vec3(1.0,0.55,0.25) * gring * desp * 1.1;
   }
 
