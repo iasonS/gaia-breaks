@@ -19,6 +19,10 @@ overlays diegetic game-UI. Six units: audioClock, score, renderer, scenes, ui, d
 `src/dev/analyze.html` produces `public/score-seed.json` from the track once.
 `src/score-data.js` is the hand-tuned authored keyframes (transition times, corruption curve,
 UI cue times). Tune via the dev scrubber (`import.meta.env.DEV` only).
+Big visual hits are MUSIC-LOCKED: titan fall crashes (`CRS`/`SEG` in titan.frag), stagger
+hits (`STG`), and world meteor impacts (`WT` in world.frag) are const arrays of real
+kick-onset times extracted from the mp3 (low-band onset analysis). If the track changes,
+re-extract onsets and update those arrays.
 
 ## Notes
 - The track mp3 lives in `audio/` and is gitignored (personal working asset, not committed).

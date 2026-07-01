@@ -13,19 +13,25 @@ void main(){
   vec2 uv = (vUv - vec2(0.5,0.30))*zoom + vec2(0.5,0.30);
   vec2 p = (uv - 0.5); p.x *= uAspect;
 
-  // --- kinetic camera + rhythmic mega-impacts: keep the eye moving ---
-  // the bombardment holds off for the first 10s — the world simply exists — then it begins
-  float meteorGate = smoothstep(9.7, 10.0, uTime);
-  float mt = max(0.0, uTime - 10.0);
-  float mp = 4.3;
-  float mk = floor(mt/mp), ml = fract(mt/mp);
-  float impact = meteorGate * step(0.58, ml) * exp(-(ml-0.58)*9.0); // sharp jolt after each strike
-  vec2 mhitUV = vec2(0.5 + (hash(vec2(mk,81.0))-0.5)*0.30, 0.34 + (hash(vec2(mk,82.0))-0.5)*0.14);
+  // --- kinetic camera + mega-impacts LOCKED to the track's real hits ---
+  // (kick-onset analysis of the mp3; the world simply exists until the first one)
+  const int NW = 9;
+  const float WT[NW] = float[](11.39,16.44,21.32,24.99,29.85,35.33,39.11,43.00,46.71);
+  float lastT = -100.0, nextT = 1e5, lastI = 0.0, nextI = 0.0;
+  for (int i=0;i<NW;i++){
+    if (WT[i] <= uTime && WT[i] > lastT){ lastT = WT[i]; lastI = float(i); }
+    if (WT[i] >  uTime && WT[i] < nextT){ nextT = WT[i]; nextI = float(i); }
+  }
+  float meteorGate = smoothstep(WT[0]-0.3, WT[0], uTime);
+  float sw = max(0.0, uTime - lastT);                            // seconds since the last strike
+  float impact = exp(-sw*2.2) * step(0.0, uTime-lastT) * meteorGate; // sharp jolt ON each hit
+  float tta = max(0.0, nextT - uTime);                           // time until the next strike
+  vec2 mhitUV  = vec2(0.5 + (hash(vec2(lastI,81.0))-0.5)*0.30, 0.34 + (hash(vec2(lastI,82.0))-0.5)*0.14);
+  vec2 mnextUV = vec2(0.5 + (hash(vec2(nextI,81.0))-0.5)*0.30, 0.34 + (hash(vec2(nextI,82.0))-0.5)*0.14);
   uv += vec2(sin(uTime*0.17), cos(uTime*0.13))*0.006;            // living drift, never still
   uv += vec2(sin(uTime*73.0), cos(uTime*61.0))*impact*0.018;     // camera shake on impact
-  float sw = max(0.0, ml-0.58);
   vec2 toh = uv - mhitUV; float dh = length(toh);
-  uv += normalize(toh+1e-4) * sin((dh - sw*1.5)*38.0)*exp(-dh*4.0)*exp(-sw*5.0)*impact*0.03; // shockwave ripples the whole frame
+  uv += normalize(toh+1e-4) * sin((dh - sw*0.35)*38.0)*exp(-dh*4.0)*exp(-sw*1.2)*impact*0.03; // shockwave ripples the whole frame
   uv = (uv-0.5)*(1.0 - impact*0.05) + 0.5;                       // zoom punch
   p = (uv-0.5); p.x *= uAspect;
 
@@ -115,6 +121,7 @@ void main(){
 
   // meteor impacts hammering the dead surface: flash + expanding shockwave ring
   {
+    float mt = max(0.0, uTime - WT[0]);   // background hammering once the assault begins
     float ip = 2.3, ik = floor(mt/ip), il = fract(mt/ip);
     vec2 hit = wc + vec2((hash(vec2(ik,5.0))-0.5)*0.55, (hash(vec2(ik,6.0))-0.5)*0.55);
     float onDisc = smoothstep(R,R-0.01,length(hit-wc)) * disc;
@@ -186,24 +193,25 @@ void main(){
   // inner demons. Most strikes scream in from outside (white-hot); some erupt from
   // within (violet), the demons attacking self-preservation from the inside.
   {
-    float inner = step(0.62, hash(vec2(mk,85.0)));        // this strike comes from within
-    vec2 fromDir = normalize(vec2(hash(vec2(mk,83.0))-0.5, hash(vec2(mk,84.0))-0.5)+1e-4);
-    vec2 from = mhitUV + fromDir*0.85;                    // incoming from any side
-    vec2 dir = normalize(mhitUV - from);
-    vec2 cur = mix(from, mhitUV, smoothstep(0.0,0.58,ml));
+    float innerL = step(0.62, hash(vec2(lastI,85.0)));    // did the LAST strike come from within
+    float innerN = step(0.62, hash(vec2(nextI,85.0)));    // does the NEXT one
+    // the incoming trail streaks toward where the NEXT hit lands, arriving ON the hit
+    vec2 fromDir = normalize(vec2(hash(vec2(nextI,83.0))-0.5, hash(vec2(nextI,84.0))-0.5)+1e-4);
+    vec2 from = mnextUV + fromDir*0.85;                   // incoming from any side
+    vec2 dir = normalize(mnextUV - from);
+    float appr = 1.0 - clamp(tta/1.6, 0.0, 1.0);          // the last 1.6s of approach
+    vec2 cur = mix(from, mnextUV, appr);
     float along = clamp(dot(uv-cur, -dir), 0.0, 0.55);
     vec2 q = cur - dir*along;
-    float fade = smoothstep(0.58,0.30,ml);
-    vec3 extC = vec3(1.0,0.8,0.6);                        // external force: white-hot
-    vec3 innC = vec3(0.7,0.35,1.0);                       // inner demon: violet
-    vec3 trailC = mix(extC, innC, inner);
-    fade *= meteorGate;                                  // no strikes before the assault begins
-    col += trailC * smoothstep(0.010,0.0, distance(uv,q)) * fade * 2.0 * (1.0-inner);    // incoming trail (external only)
-    col += mix(vec3(1.0,0.7,0.45), innC, inner) * smoothstep(0.022,0.0, distance(uv,cur)) * fade * 2.5 * (1.0-0.6*inner);
-    col += mix(vec3(1.0,0.9,0.7), vec3(0.6,0.3,1.0), inner) * impact * 0.5;              // detonation flash
-    col += mix(vec3(1.0,0.97,0.88), vec3(0.75,0.5,1.0), inner) * smoothstep(0.07,0.0, distance(uv,mhitUV)) * impact * 4.0; // blast
-    float ring = smoothstep(0.02,0.0, abs(distance(uv,mhitUV) - sw*1.5)) * exp(-sw*3.0) * step(0.58,ml);
-    col += mix(vec3(1.0,0.7,0.4), vec3(0.7,0.4,1.0), inner) * ring * 1.6;                // shock ring
+    float fade = smoothstep(1.8,1.1,tta) * smoothstep(0.02,0.25,tta); // gone at arrival — the blast takes over
+    fade *= meteorGate * (1.0-innerN);                    // inner demons give no warning
+    col += vec3(1.0,0.8,0.6) * smoothstep(0.010,0.0, distance(uv,q)) * fade * 2.0;       // incoming trail
+    col += vec3(1.0,0.7,0.45) * smoothstep(0.022,0.0, distance(uv,cur)) * fade * 2.5;    // its burning head
+    // detonation ON the hit: external force white-hot / inner demon violet, from within
+    col += mix(vec3(1.0,0.9,0.7), vec3(0.6,0.3,1.0), innerL) * impact * 0.5;             // detonation flash
+    col += mix(vec3(1.0,0.97,0.88), vec3(0.75,0.5,1.0), innerL) * smoothstep(0.07,0.0, distance(uv,mhitUV)) * impact * 4.0; // blast
+    float ring = smoothstep(0.02,0.0, abs(distance(uv,mhitUV) - sw*0.35)) * exp(-sw*0.7) * meteorGate;
+    col += mix(vec3(1.0,0.7,0.4), vec3(0.7,0.4,1.0), innerL) * ring * 1.6;               // shock ring
   }
 
   // matter slowly winding inward toward the world — the first hint of the Maw to come

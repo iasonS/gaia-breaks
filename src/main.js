@@ -41,8 +41,24 @@ const gate = document.getElementById('gate');
 if (SHOOT) { gate.style.display = 'none'; vol.style.display = 'none'; }
 gate.addEventListener('click', async () => {
   gate.style.display = 'none';
+  document.documentElement.requestFullscreen?.().catch(() => {});
+  wake();
   await clock.play();
 });
+
+// the ritual: once it begins, the interface recedes — cursor and volume fade
+// away until the hand moves again
+let idleTimer = null;
+function wake() {
+  document.body.style.cursor = '';
+  vol.style.opacity = '';
+  clearTimeout(idleTimer);
+  idleTimer = setTimeout(() => {
+    document.body.style.cursor = 'none';
+    vol.style.opacity = '0';
+  }, 2500);
+}
+addEventListener('mousemove', () => { if (idleTimer !== null) wake(); });
 
 let endAt = null;
 (function loop(){

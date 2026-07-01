@@ -21,9 +21,12 @@ float skyline(vec2 uv, float base, float scale, float seed){
   return step(uv.y, h) * step(0.0, uv.y);
 }
 void main(){
-  // approach the fallen titan
-  float zoom = 1.0 - 0.25*uProgress;
-  vec2 uv = (vUv - vec2(0.5,0.45))*zoom + vec2(0.5,0.45);
+  // approach the fallen titan; at the very end the camera pulls back and drops
+  // to frame the wreck of the final fall — the one it doesn't get up from
+  float endFrame = smoothstep(0.94, 1.0, uProgress);
+  float zoom = 1.0 - 0.25*uProgress + 0.14*endFrame;
+  vec2 cc = vec2(0.5, 0.45 - 0.10*endFrame);
+  vec2 uv = (vUv - cc)*zoom + cc;
   // escalating tremors: periodic camera jolts that hit harder as collapse nears
   float quake = exp(-fract(uTime*0.6)*12.0) * step(0.4, hash(vec2(floor(uTime*0.6),4.0)));
   uv += vec2(sin(uTime*73.0), cos(uTime*61.0)) * quake * (0.25+0.75*uProgress) * 0.016;
@@ -75,44 +78,64 @@ void main(){
   // the titan FALLS: it strains to hold, then overbalances and PITCHES over with the
   // weight of a mountain — crashing down, lying broken — then drags itself back up.
   // Heavy and violent, never a gentle slump. (The true rise of 七転び八起き is the Gate.)
-  float tp = 17.0;                                       // big, rare falls — not a loop of slumps
-  float ph = uTime/tp + 0.05;
-  float ck = floor(ph);
-  float tl = fract(ph);
+  // the falls are LOCKED to the track's real hits (kick-onset analysis of the mp3):
+  // each crash lands ON a heavy hit; the last fall lands just before the drop and it
+  // does NOT get up from that one — the Maw takes it.
+  const int NC = 4;
+  const float CRS[NC]   = float[](58.02, 72.14, 95.06, 107.39);    // crash instants (real hits)
+  const float SEG[NC+1] = float[](46.0, 66.0, 80.0, 103.0, 113.0); // cycle spans
+  float ck = 0.0, tl = 0.05, Ci = CRS[0];
+  for (int i=0;i<NC;i++){
+    if (uTime >= SEG[i] && uTime < SEG[i+1]){
+      ck = float(i); Ci = CRS[i];
+      tl = (uTime < Ci) ? 0.47*clamp((uTime-SEG[i])/(Ci-SEG[i]),0.0,1.0)
+                        : 0.47 + 0.53*clamp((uTime-Ci)/(SEG[i+1]-Ci),0.0,1.0);
+    }
+  }
+  if (uTime >= SEG[NC]) { ck = float(NC-1); tl = 0.999; Ci = CRS[NC-1]; }
+  float finalFall = step(2.5, ck);                       // the 4th fall is the one it stays down from
   float desp = 0.75 + 0.5*uProgress;
   float r1=hash(vec2(ck,3.0)), r2=hash(vec2(ck,7.0)), r3=hash(vec2(ck,13.0)), r4=hash(vec2(ck,19.0));
   float dirn = (r1<0.5)?1.0:-1.0;                        // which way it goes down (varies per fall)
-  float fallAt = mix(0.34,0.46,r2);                      // the breaking point varies
-  float crashT = fallAt + 0.12;
+  float fallAt = 0.35;
+  float crashT = 0.47;                                   // phase anchored to the authored hit
   // an accelerating pitch (momentum), a held beat down, then a slow rise
   float fv = smoothstep(fallAt, crashT, tl);
   float fallP = fv*fv;
   float upP   = smoothstep(0.74,0.95,tl); upP = 1.0-(1.0-upP)*(1.0-upP);
+  upP *= 1.0 - finalFall;                                // the last time, there is no getting up
   float angAmt = clamp(fallP - upP, 0.0, 1.0);
-  // some falls it FIGHTS OFF: a deep stagger, held, forced back upright — every fall
-  // is a battle it might win, not a scheduled collapse
-  float resist = step(r4, 0.30);                         // ~1 in 3 it refuses to go down
-  float live = 1.0 - resist;                             // gates everything impact-related
-  float stagger = smoothstep(fallAt, fallAt+0.07, tl) * (1.0 - smoothstep(fallAt+0.10, fallAt+0.22, tl));
-  angAmt = mix(angAmt, stagger*0.32, resist);
-  float maxAng = mix(1.0,1.3,r3);                        // ~60-75deg: it goes all the way DOWN
+  float maxAng = mix(0.90,1.10,r3);                      // ~52-63deg: down hard, but the wreck stays IN FRAME
   // MASS: it slams past the ground and rebounds once before settling — momentum, not keyframes
-  float since = max(0.0, tl - crashT) * tp;              // seconds since impact
-  float bounce = sin(since*6.5) * exp(-since*2.4) * 0.13 * step(0.5, fallP) * live;
-  float lagAmt = 4.0*fv*(1.0-fv) * (1.0-0.7*resist);     // how fast it's pitching right now
-  float crash  = smoothstep(crashT-0.03,crashT,tl)*smoothstep(crashT+0.14,crashT,tl) * live;
-  float c = smoothstep(crashT-0.02, crashT+0.05, tl) * (1.0 - smoothstep(0.74,0.90,tl)) * live; // crumple on landing
-  float effort = smoothstep(0.74,0.86,tl)*(1.0-smoothstep(0.93,1.0,tl)) * live;                 // strain to rise
+  float since = max(0.0, uTime - Ci);                    // seconds since impact
+  float bounce = sin(since*6.5) * exp(-since*2.4) * 0.13 * step(0.5, fallP);
+  float lagAmt = 4.0*fv*(1.0-fv);                        // how fast it's pitching right now
+  float crash  = smoothstep(crashT-0.03,crashT,tl)*smoothstep(crashT+0.14,crashT,tl);
+  float c = smoothstep(crashT-0.02, crashT+0.05, tl) * mix(1.0-smoothstep(0.74,0.90,tl), 1.0, finalFall);
+  float effort = smoothstep(0.74,0.86,tl)*(1.0-smoothstep(0.93,1.0,tl)) * (1.0-finalFall);      // strain to rise
   // while down it TRIES: a first push at rising that fails and drops back — then the real one
-  float tryP = smoothstep(0.58,0.63,tl)*(1.0-smoothstep(0.63,0.70,tl)) * live * step(0.5,fallP);
+  float tryP = smoothstep(0.58,0.63,tl)*(1.0-smoothstep(0.63,0.70,tl)) * step(0.5,fallP) * (1.0-finalFall);
+  // between falls it takes hits it HOLDS against — jolting ON real hits, staying up
+  const int NS = 5;
+  const float STG[NS] = float[](65.11, 68.05, 84.11, 88.99, 101.42);
+  float upright = clamp(1.0 - angAmt, 0.0, 1.0);
+  float stag = 0.0, stagLean = 0.0;
+  for (int i=0;i<NS;i++){
+    float dt = uTime - STG[i];
+    float en = step(0.0,dt)*exp(-max(dt,0.0)*2.6);   // max() keeps exp finite pre-hit (0*inf = NaN)
+    stag += en;
+    stagLean += en*cos(dt*7.0) * ((mod(float(i),2.0)<1.0)?1.0:-1.0);
+  }
+  stag = min(stag,1.0) * upright;
   angAmt -= 0.11*tryP;
   effort = max(effort, tryP);
-  float ang = (angAmt + bounce) * maxAng * dirn;
+  float ang = (angAmt + bounce) * maxAng * dirn + 0.10*stagLean*upright;
   float tension = smoothstep(0.0,fallAt,tl); float tremor = tension*tension;             // trembling builds
   vec2 ps = p;
   ps.x += sin(uTime*0.7)*0.004 + sin(uTime*24.0)*0.007*tremor;        // teeters harder at the brink
   ps += crash * vec2(sin(uTime*95.0),cos(uTime*88.0)) * 0.022 * desp; // violent ground-impact shake
-  ps.y += 0.016 * desp * live * sin(since*11.0) * exp(-since*3.0) * step(0.001, since); // the camera itself drops with the hit
+  ps += stag * vec2(sin(uTime*82.0),cos(uTime*74.0)) * 0.008;         // jolt on the hits it holds against
+  ps.y += 0.016 * desp * sin(since*11.0) * exp(-since*3.0) * step(0.001, since) * step(0.5,fallP); // the camera itself drops with the hit
   // pitch the whole body about its feet — a toppling colossus carrying its own weight over
   vec2 pivot = vec2(0.5,0.03);
   float ca=cos(ang), sa=sin(ang);
@@ -201,7 +224,7 @@ void main(){
   // dust explodes out where the body crashes into the ground
   {
     float dl = tl;
-    float hit = smoothstep(crashT-0.05,crashT,dl)*smoothstep(crashT+0.22,crashT,dl) * desp * live;
+    float hit = smoothstep(crashT-0.05,crashT,dl)*smoothstep(crashT+0.22,crashT,dl) * desp;
     float spread = max(0.0, dl-crashT);
     for(int i=0;i<12;i++){
       float fi=float(i);
@@ -213,7 +236,7 @@ void main(){
     // the ground itself cracks outward from where it lands — a shockwave along the earth
     float swr = since*0.55;
     float gring = smoothstep(0.014,0.0, abs(distance(p, vec2(0.5+dirn*0.34,0.035)) - swr))
-                * exp(-since*2.2) * step(0.001,since) * step(0.5,fallP) * live;
+                * exp(-since*2.2) * step(0.001,since) * step(0.5,fallP);
     col += vec3(1.0,0.55,0.25) * gring * desp * 1.1;
   }
 

@@ -23,7 +23,7 @@ export const score = {
     { t: 112, v: 1.10 },
     { t: 140, v: 1.50 },   // peak of the hardest stretch
     { t: 168, v: 1.30 },
-    { t: 174, v: 0.45 },   // the breakdown calms
+    { t: 174, v: 0.12 },   // the breakdown: near-silence — the nadir, the heart alone
     { t: 196, v: 1.00 },   // brief resurgence (192-200)
     { t: 206, v: 0.60 },   // outro settles
     { t: 260, v: 0.70 },
