@@ -9,6 +9,8 @@ float capsule(vec2 p, vec2 a, vec2 b, float r){
   vec2 pa=p-a, ba=b-a; float h=clamp(dot(pa,ba)/dot(ba,ba),0.0,1.0);
   return length(pa-ba*h)-r;
 }
+// full articulated body SDF at a sample point (joints captured from main)
+#define BODY(q) min(min(min(capsule(q,HP,SH,0.075),capsule(q,SH,HD,0.05)),min(capsule(q,SH,LH,0.04),capsule(q,SH,RH,0.04))),min(min(capsule(q,HP,LK,0.045),capsule(q,HP,RK,0.045)),min(capsule(q,LK,LF,0.04),capsule(q,RK,RF,0.04))))
 // blocky ruined skyline sitting on the horizon
 float skyline(vec2 uv, float base, float scale, float seed){
   float seg = floor(uv.x*scale);
@@ -78,15 +80,21 @@ void main(){
   float ck = floor(ph);
   float tl = fract(ph);
   float desp = 0.75 + 0.5*uProgress;
-  float r1=hash(vec2(ck,3.0)), r2=hash(vec2(ck,7.0)), r3=hash(vec2(ck,13.0));
+  float r1=hash(vec2(ck,3.0)), r2=hash(vec2(ck,7.0)), r3=hash(vec2(ck,13.0)), r4=hash(vec2(ck,19.0));
   float dirn = (r1<0.5)?1.0:-1.0;                        // which way it goes down (varies per fall)
   float fallAt = mix(0.34,0.46,r2);                      // the breaking point varies
   float crashT = fallAt + 0.12;
   // an accelerating pitch (momentum), a held beat down, then a slow rise
-  float fallP = smoothstep(fallAt, crashT, tl); fallP *= fallP;
+  float fv = smoothstep(fallAt, crashT, tl);
+  float fallP = fv*fv;
   float upP   = smoothstep(0.74,0.95,tl); upP = 1.0-(1.0-upP)*(1.0-upP);
   float angAmt = clamp(fallP - upP, 0.0, 1.0);
-  float ang = angAmt * mix(1.0,1.3,r3) * dirn;           // ~60-75deg: it goes all the way DOWN
+  float maxAng = mix(1.0,1.3,r3);                        // ~60-75deg: it goes all the way DOWN
+  // MASS: it slams past the ground and rebounds once before settling — momentum, not keyframes
+  float since = max(0.0, tl - crashT) * tp;              // seconds since impact
+  float bounce = sin(since*6.5) * exp(-since*2.4) * 0.13 * step(0.5, fallP);
+  float ang = (angAmt + bounce) * maxAng * dirn;
+  float lagAmt = 4.0*fv*(1.0-fv);                        // how fast it's pitching right now
   float crash  = smoothstep(crashT-0.03,crashT,tl)*smoothstep(crashT+0.14,crashT,tl);
   float c = smoothstep(crashT-0.02, crashT+0.05, tl) * (1.0 - smoothstep(0.74,0.90,tl)); // crumple on landing
   float effort = smoothstep(0.74,0.86,tl)*(1.0-smoothstep(0.93,1.0,tl));                 // strain to rise
@@ -94,29 +102,49 @@ void main(){
   vec2 ps = p;
   ps.x += sin(uTime*0.7)*0.004 + sin(uTime*24.0)*0.007*tremor;        // teeters harder at the brink
   ps += crash * vec2(sin(uTime*95.0),cos(uTime*88.0)) * 0.022 * desp; // violent ground-impact shake
+  ps.y += 0.016 * desp * sin(since*11.0) * exp(-since*3.0) * step(0.001, since); // the camera itself drops with the hit
   // pitch the whole body about its feet — a toppling colossus carrying its own weight over
   vec2 pivot = vec2(0.5,0.03);
   float ca=cos(ang), sa=sin(ang);
   vec2 dd2 = ps - pivot;
   ps = vec2(ca*dd2.x - sa*dd2.y, sa*dd2.x + ca*dd2.y) + pivot;
+  // before the break: knees buckle and the hips sag — you SEE the weight win
+  float buckle = tremor * (1.0 - fallP) * (0.5+0.5*r4);
   // body crumples a little on landing so it's a broken heap, not a rigid plank
-  vec2 HP=mix(vec2(0.5,0.18), vec2(0.5,0.15), c);
-  vec2 SH=mix(vec2(0.5,0.48), vec2(0.5+0.04*dirn,0.40), c);
-  vec2 HD=mix(vec2(0.5,0.62), vec2(0.5+0.08*dirn,0.50), c);
+  vec2 HP=mix(vec2(0.5,0.18 - 0.020*buckle), vec2(0.5,0.15), c);
+  vec2 SH=mix(vec2(0.5,0.48 - 0.030*buckle), vec2(0.5+0.04*dirn,0.40), c);
+  vec2 HD=mix(vec2(0.5,0.62 - 0.035*buckle), vec2(0.5+0.08*dirn,0.50), c);
   HD = mix(HD, HD+vec2(0.0,0.07), effort);               // head lifts as it strains upright
-  vec2 LK=vec2(0.47,0.10), RK=vec2(0.53,0.10);
+  vec2 LK=vec2(0.47-0.014*buckle,0.10), RK=vec2(0.53+0.014*buckle,0.10);
   vec2 LF=vec2(0.45,0.0),  RF=vec2(0.55,0.0);
-  vec2 LH=mix(vec2(0.33,0.28), vec2(0.31,0.34), c);      // arms fling out to brace
-  vec2 RH=mix(vec2(0.66,0.40), vec2(0.69,0.34), c);
-  float body = 1e9;
-  body = min(body, capsule(ps, HP, SH, 0.075));          // torso
-  body = min(body, capsule(ps, SH, HD, 0.05));           // neck/head
-  body = min(body, capsule(ps, SH, LH, 0.04));           // left arm
-  body = min(body, capsule(ps, SH, RH, 0.04));           // right arm
-  body = min(body, capsule(ps, HP, LK, 0.045));          // left thigh
-  body = min(body, capsule(ps, HP, RK, 0.045));          // right thigh
-  body = min(body, capsule(ps, LK, LF, 0.04));           // left shin
-  body = min(body, capsule(ps, RK, RF, 0.04));           // right shin
+  vec2 LH=mix(vec2(0.33+0.03*(r4-0.5),0.28), vec2(0.31,0.34), c);    // stance varies per fall
+  vec2 RH=mix(vec2(0.66,0.40+0.05*(r1-0.5)), vec2(0.69,0.34), c);
+  // INERTIA: the upper body lags the pitch, then whips past and folds on impact —
+  // the joints articulate through the fall instead of riding it like a plank
+  float bend = maxAng * dirn * (-0.30*lagAmt + 0.45*crash);
+  float cb=cos(bend), sb=sin(bend);
+  mat2 B = mat2(cb,-sb,sb,cb);
+  float b2=bend*1.6, cb2=cos(b2), sb2=sin(b2);
+  SH = HP + B*(SH-HP);
+  HD = HP + mat2(cb2,-sb2,sb2,cb2)*(HD-HP);              // the head whips hardest
+  // arms trail UP against the fall, flailing, then slam down with the crash
+  vec2 flail = vec2(0.0,(0.10+0.06*r2)*lagAmt) + vec2(0.05*dirn,-0.08)*crash;
+  LH = HP + B*(LH-HP) + flail + vec2(-0.02, 0.020)*sin(uTime*11.0)*lagAmt;
+  RH = HP + B*(RH-HP) + flail + vec2( 0.02,-0.015)*sin(uTime*13.0)*lagAmt;
+  // motion smear: ghost silhouettes trail the body while it's pitching fast
+  float smear = max(lagAmt, crash*0.7);
+  if (smear > 0.02){
+    float ag1 = ang - dirn*maxAng*0.16*smear;
+    float ag2 = ang - dirn*maxAng*0.32*smear;
+    vec2 pg1 = vec2(cos(ag1)*dd2.x - sin(ag1)*dd2.y, sin(ag1)*dd2.x + cos(ag1)*dd2.y) + pivot;
+    vec2 pg2 = vec2(cos(ag2)*dd2.x - sin(ag2)*dd2.y, sin(ag2)*dd2.x + cos(ag2)*dd2.y) + pivot;
+    float g1 = BODY(pg1), g2 = BODY(pg2);
+    col = mix(col, vec3(0.025,0.02,0.035), smoothstep(0.006,0.0,g1)*0.32*smear);
+    col += vec3(1.0,0.45,0.18) * smoothstep(0.015,0.0,abs(g1)) * 0.30*smear;
+    col = mix(col, vec3(0.025,0.02,0.035), smoothstep(0.006,0.0,g2)*0.18*smear);
+    col += vec3(1.0,0.40,0.15) * smoothstep(0.015,0.0,abs(g2)) * 0.16*smear;
+  }
+  float body = BODY(ps);
   float mask = smoothstep(0.006,0.0, body);
   mask *= step(noise(ps*22.0), 0.93);                      // eroded pitting
   // missing chunks, worsening as the titan dies
@@ -128,11 +156,12 @@ void main(){
   float crack = smoothstep(0.46,0.5,cn)*smoothstep(0.56,0.52,cn);
   float cn2 = noise(ps*7.0 + uTime*0.03);
   crack += smoothstep(0.5,0.52,cn2)*smoothstep(0.6,0.55,cn2)*0.7;
-  // the cracks flare from the strain of trying to rise, then gutter on collapse
-  col += vec3(1.0,0.4,0.1) * crack * mask * (0.25 + 1.4*uProgress) * (0.7+0.3*sin(uTime*4.0));
-  col += vec3(1.0,0.6,0.2) * crack * mask * effort * (0.6+0.9*uProgress);   // strain flare
-  col += vec3(1.0,0.5,0.15) * crack * mask * c * (0.8+1.0*uProgress);       // cracks blow open as it's crushed
-  col += vec3(1.0,0.7,0.35) * mask * crash * (1.2+1.5*uProgress);           // molten flash on impact
+  // the cracks flare from the strain of trying to rise, then gutter on collapse —
+  // but the body STAYS a dark colossus; the glow lives in the wounds, never floods it
+  col += vec3(1.0,0.4,0.1) * crack * mask * (0.25 + 0.55*uProgress) * (0.7+0.3*sin(uTime*4.0));
+  col += vec3(1.0,0.6,0.2) * crack * mask * effort * (0.5+0.5*uProgress);   // strain flare
+  col += vec3(1.0,0.5,0.15) * crack * mask * c * (0.6+0.5*uProgress);       // cracks blow open as it's crushed
+  col += vec3(1.0,0.7,0.35) * (0.25+0.75*crack) * mask * crash * (0.7+0.6*uProgress); // impact flash through the wounds
 
   // THE HEART — self-preservation — beating in its chest. The same heart that beats in
   // the dead world, in the void, and in the risen figure. It never stops. (the through-line)
@@ -154,12 +183,17 @@ void main(){
       dp.x = (dp.x-0.5)*uAspect + 0.5;
       col += vec3(0.85,0.5,0.28) * smoothstep(0.024,0.0, distance(p,dp)) * hit;
     }
+    // the ground itself cracks outward from where it lands — a shockwave along the earth
+    float swr = since*0.55;
+    float gring = smoothstep(0.014,0.0, abs(distance(p, vec2(0.5+dirn*0.34,0.035)) - swr))
+                * exp(-since*2.2) * step(0.001,since) * step(0.5,fallP);
+    col += vec3(1.0,0.55,0.25) * gring * desp * 1.1;
   }
 
   // eruption bursts: the cracks flare in sudden flashes across the body
   float ek = floor(uTime*0.8);
   float erupt = exp(-fract(uTime*0.8)*9.0) * step(0.45, hash(vec2(ek,9.0)));
-  col += vec3(1.0,0.55,0.18) * erupt * mask * (0.4 + 1.6*uProgress);
+  col += vec3(1.0,0.55,0.18) * erupt * mask * (0.25+0.75*crack) * (0.35 + 0.65*uProgress);
 
   // rising sparks lifting off the burning titan
   for(int i=0;i<10;i++){
@@ -200,6 +234,6 @@ void main(){
   }
   col *= smoothstep(0.0,0.04, uv.y);
   // emerging through the planet's crust: a warm flash on arrival that clears fast
-  col += vec3(1.0,0.55,0.25) * (1.0 - smoothstep(0.0,0.06,uProgress)) * 0.7;
+  col += vec3(1.0,0.55,0.25) * (1.0 - smoothstep(0.0,0.05,uProgress)) * 0.45;
   o = vec4(col, 1.0);
 }

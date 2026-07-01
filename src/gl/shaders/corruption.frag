@@ -15,9 +15,11 @@ void main(){
   // subtle living-camera breath so the frame never feels locked
   uv += vec2(sin(uTime*0.27)*0.0016, cos(uTime*0.19)*0.0012);
   uv += (vec2(noise(vec2(uTime*0.6,3.0)), noise(vec2(uTime*0.5,8.0)))-0.5) * 0.0014;
-  // horizontal tear/displacement, stronger with corruption
+  // horizontal tear/displacement, stronger with corruption. Gated below ~0.15 so
+  // near-healed stretches (the Gate, the quiet intro) don't get their clean edges
+  // chewed into blocky notches by residual displacement.
   float band = step(0.5, noise(vec2(floor(uv.y*40.0), floor(uTime*12.0))));
-  uv.x += (band-0.5) * 0.06 * c;
+  uv.x += (band-0.5) * 0.06 * c * smoothstep(0.06, 0.22, c);
 
   // datamosh: rectangular blocks jump + smear at high corruption, stuttering in steps.
   // Engages above ~0.7 so calm stretches stay clean; intensity climbs to the peak.

@@ -55,15 +55,18 @@ void main(){
 
   // spinning accretion ring — tighter, hotter, more turbulent as we fall;
   // the disk tilts toward edge-on as we dive in (squash y), so the silhouette keeps shifting
-  float tilt = 1.0 - 0.45*plunge;
+  float tilt = 1.0 - 0.45*plunge - 0.06*sin(uTime*0.11);         // disk slowly precesses, never frozen
   float rT = length(vec2(p.x, p.y/max(tilt,0.2)));
-  float rIn = 0.17 - 0.02*uProgress, rOut = 0.32 - 0.02*uProgress;
+  // radii breathe on slow cycles so the maw evolves across its whole long reign
+  float rIn = 0.17 - 0.02*uProgress + 0.012*sin(uTime*0.23);
+  float rOut = 0.32 - 0.02*uProgress + 0.022*sin(uTime*0.31+2.0);
   float ring = smoothstep(rOut,rOut-0.05,rT) * smoothstep(rIn,rIn+0.05,rT);
   float spin = uTime*(2.5 + 0.7*sin(uTime*0.2)) + 18.0*plunge;   // ring accelerates on the dive
   float swirl = 0.5+0.5*sin(ang*6.0 + spin - rT*34.0 + noise(vec2(ang*3.0,uTime*0.4))*3.0);
   float hot = 0.5+0.5*sin(ang*3.0 - uTime*1.7);
   vec3 hotCol = mix(vec3(1.0,0.9,0.6), vec3(1.0,0.6,0.9), uProgress*0.6);
-  col += mix(vec3(0.9,0.35,0.08), hotCol, swirl) * ring * (1.4+hot+0.8*uProgress);
+  // spiral-arm structure: intensity rides the swirl so the disk keeps visible turbulence
+  col += mix(vec3(0.9,0.35,0.08), hotCol, swirl) * ring * (0.85 + 0.6*hot + 0.45*uProgress) * (0.55+0.45*swirl);
 
   // pulsing lens halo, widening as the pull strengthens
   float halo = smoothstep(0.5+0.2*uProgress,0.2,r)*0.15*(0.6+0.4*sin(uTime*0.8));
@@ -74,7 +77,7 @@ void main(){
   col += mix(vec3(1.0,0.8,0.6), vec3(1.0,0.6,0.95), uProgress) * jet * smoothstep(0.46,0.16,r) * (0.5+0.7*uProgress);
 
   // black core with a lensing wobble (event horizon breathing)
-  float core = 0.165 + 0.012*sin(uTime*1.3) + 0.01*noise(vec2(ang*2.0,uTime*0.5));
+  float core = 0.165 + 0.045*uProgress + 0.012*sin(uTime*1.3) + 0.01*noise(vec2(ang*2.0,uTime*0.5)); // the horizon GROWS as it wins
   col *= smoothstep(core,core+0.035,r);
 
   // THE TITAN, dragged in from its fall — tumbling toward the core, stretched by the pull,
@@ -117,5 +120,10 @@ void main(){
   float bloom = smoothstep(core+0.20, core-0.02, r);        // brightest at the core
   col += vec3(1.0,0.95,0.9) * bloom * cross * (1.0 + 6.0*cross);
   col += vec3(1.0,0.97,0.92) * smoothstep(0.6,0.0,r) * cross*cross * 2.5;
+  // soft-shoulder tone map: tame the additive pile-up so the disk keeps its internal
+  // structure instead of clipping to a featureless white donut (the final crossing
+  // still blows past 1.0 and whites out — that part is intentional)
+  col = col / (1.0 + 0.28*col);
+  col *= 1.25;
   o = vec4(col, 1.0);
 }

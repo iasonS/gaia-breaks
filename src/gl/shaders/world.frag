@@ -68,17 +68,27 @@ void main(){
   // cracks spread and pulse brighter as the world dies further (progress)
   float crackThresh = 0.5 - 0.06*uProgress;
   float cracks = smoothstep(0.45,crackThresh, noise(rc*3.0 + 3.0)) * smoothstep(0.62,0.55, noise(rc*6.0 + uTime*0.02));
+  cracks *= 0.55 + 0.6*noise(rc*18.0);                    // fine fracture detail inside the glow
   // the core fights to keep beating: a double-thump heartbeat throbbing through the cracks
   float beat = pow(0.5+0.5*sin(uTime*2.6),6.0) + 0.7*pow(0.5+0.5*sin(uTime*2.6-0.7),6.0);
   float pulse = 0.55 + 0.9*beat;
   vec3 surf = vec3(0.04,0.03,0.05)*(0.15 + lit*0.85);
   surf += vec3(0.05,0.035,0.06) * noise(rc*9.0) * lit * 0.8; // rotating terrain mottle catching the light
   surf += vec3(1.0,0.35,0.08) * cracks * (0.4 + 0.6*(1.0-lit)) * pulse * (1.0+0.6*uProgress); // cracks glow on the dark side
-  // a vast molten rift tearing the world open, widening as it dies
-  float riftLine = sp.y + 0.18*sin(sp.x*4.0 + 1.0) + 0.06*noise(rc*5.0);
-  float rift = smoothstep(0.05 + 0.10*uProgress, 0.0, abs(riftLine));
-  surf += vec3(1.0,0.5,0.12) * rift * (0.25 + 0.9*uProgress) * (0.7+0.5*beat) * 2.2; // molten core through the split
-  surf = mix(surf, vec3(0.0), smoothstep(0.02,0.0,abs(riftLine)) * uProgress * 0.6); // dark gap at the very seam
+  // a vast molten rift tearing the world open, widening as it dies — a jagged CRACK
+  // with charred hard banks and a white-hot seam, not a soft glow smear
+  float riftLine = sp.y + 0.18*sin(sp.x*4.0 + 1.0) + 0.09*noise(rc*7.0) - 0.04*noise(rc*15.0);
+  float rw = 0.020 + 0.055*uProgress;                     // narrower, meaner
+  float riftGlow = smoothstep(rw, 0.0, abs(riftLine));
+  float riftCore = smoothstep(0.010,0.0, abs(riftLine));
+  float bank = smoothstep(rw*1.7, rw*0.9, abs(riftLine)); // scorched banks: hard edge
+  surf = mix(surf, vec3(0.015,0.010,0.02), bank*0.85);
+  surf += vec3(1.0,0.42,0.10) * riftGlow*riftGlow * (0.35 + 0.9*uProgress) * (0.7+0.5*beat) * 1.7;
+  surf += vec3(1.0,0.85,0.5)  * riftCore * (0.6 + 0.8*uProgress) * (0.7+0.5*beat);
+  // branch fractures forking off the main tear
+  float brn = noise(rc*9.0+4.0);
+  float branch = smoothstep(0.50,0.53,brn)*smoothstep(0.58,0.55,brn);
+  surf += vec3(1.0,0.45,0.12) * branch * smoothstep(rw*6.0,0.0,abs(riftLine)) * (0.3+0.8*uProgress) * (0.6+0.4*beat);
   col = mix(col, surf, disc);
 
   // molten plumes erupting off the dying surface, arcing into space
@@ -219,9 +229,10 @@ void main(){
     col += vec3(0.6,0.32,0.18) * blur * 0.4;           // faint lit edge
   }
 
-  // punching through the crust: molten light blows out as we dive into the planet
-  col += vec3(1.0,0.45,0.15) * dive*dive * 0.9;
-  col = mix(col, vec3(1.0,0.6,0.25), dive*dive*dive*0.6);
+  // punching through the crust: molten light flares as we dive into the planet —
+  // bright, but never a full washout; the next world must stay legible through it
+  col += vec3(1.0,0.45,0.15) * dive*dive * 0.5;
+  col = mix(col, vec3(1.0,0.6,0.25), dive*dive*dive*0.38);
 
   o = vec4(col, 1.0);
 }

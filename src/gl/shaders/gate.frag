@@ -89,6 +89,13 @@ void main(){
   col += mix(vec3(0.4,0.5,0.7), vec3(1.0,0.85,0.6), rise) * frim * (0.35+0.85*rise); // dawn rim = strength
   col += vec3(0.85,0.72,0.5) * smoothstep(0.10,0.0, fig) * rise * 0.14 * (0.75+0.25*sin(uTime*0.7)); // resolve aura
 
+  // stepping OUT of the light: for the first breaths after the crossing the figure
+  // still burns white from the Maw's bloom, cooling into the dark silhouette that
+  // rises — the one that was swallowed is the one that stands (the hand-off lands)
+  float emerge = 1.0 - smoothstep(0.0, 0.18, uProgress);
+  col += vec3(1.0,0.97,0.90) * smoothstep(0.07,0.0,fig) * emerge * 1.5;
+  col += vec3(1.0,0.90,0.75) * smoothstep(0.16,0.0,fig) * emerge*emerge * 0.5;
+
   // THE HEART, still beating in the risen figure's chest — the same core that beat in the
   // world, the Titan and the void. It made it through. (the through-line resolves here)
   float beat = pow(0.5+0.5*sin(uTime*2.6),6.0) + 0.7*pow(0.5+0.5*sin(uTime*2.6-0.7),6.0);
