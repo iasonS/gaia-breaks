@@ -23,8 +23,22 @@ const scenes = createScenes(renderer);
 const ui = createUI(document.getElementById('ui'));
 const clock = createAudioClock(document.getElementById('track'));
 
+// volume: a small HUD-styled slider, bottom-right; remembers the level
+const audioEl = document.getElementById('track');
+const vol = document.createElement('div');
+vol.id = 'vol';
+vol.innerHTML = '<span>VOL</span><input type="range" min="0" max="1" step="0.01">';
+document.body.appendChild(vol);
+const volSlider = vol.querySelector('input');
+volSlider.value = localStorage.getItem('gaia-vol') ?? '1';
+audioEl.volume = +volSlider.value;
+volSlider.addEventListener('input', () => {
+  audioEl.volume = +volSlider.value;
+  localStorage.setItem('gaia-vol', volSlider.value);
+});
+
 const gate = document.getElementById('gate');
-if (SHOOT) gate.style.display = 'none';
+if (SHOOT) { gate.style.display = 'none'; vol.style.display = 'none'; }
 gate.addEventListener('click', async () => {
   gate.style.display = 'none';
   await clock.play();
