@@ -49,6 +49,5 @@ export const score = {
     { id: 'titan-label', show: 52, hide: 104 },
     { id: 'maw-label', show: 112, hide: 150 },
     { id: 'doomed', show: 130, hide: 200 },
-    { id: 'gate-end', show: 308, hide: 325 },
   ],
 };
