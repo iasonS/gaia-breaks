@@ -20,14 +20,14 @@ export const score = {
     { t: 48, v: 0.20 },    // titan: dread rising
     { t: 92, v: 0.40 },    // the lift before the drop
     { t: 108, v: 0.55 },   // the drop hits
-    { t: 112, v: 1.10 },
-    { t: 140, v: 1.50 },   // peak of the hardest stretch
-    { t: 168, v: 1.30 },
+    { t: 112, v: 0.95 },   // violent, but the forms stay readable between stabs
+    { t: 140, v: 1.30 },   // peak of the hardest stretch
+    { t: 168, v: 1.05 },
     { t: 174, v: 0.12 },   // the breakdown: near-silence — the nadir, the heart alone
-    { t: 196, v: 1.00 },   // brief resurgence (192-200)
-    { t: 206, v: 0.60 },   // outro settles
-    { t: 260, v: 0.70 },
-    { t: 300, v: 0.50 },
+    { t: 196, v: 0.90 },   // brief resurgence (192-200) — the revelation hits here
+    { t: 206, v: 0.45 },   // outro settles: the angel must be SEEN
+    { t: 260, v: 0.50 },
+    { t: 300, v: 0.35 },
     { t: 310, v: 0.05 },   // healed for the Gate / Minecraft ending
     { t: 325, v: 0.0 },
   ],

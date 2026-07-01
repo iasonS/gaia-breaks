@@ -16,6 +16,9 @@ void main(){
   // THE NADIR: in the breakdown the void goes almost silent — everything fades until
   // only the heart is left, beating alone in the dark. The loneliest moment.
   float nad = smoothstep(172.0,178.0,uTime) * (1.0 - smoothstep(193.0,199.0,uTime));
+  // THE REVELATION: on the resurgence hit the void OPENS ITS EYES — the maw shows
+  // what it has been all along. After this moment it is the angel.
+  float reveal = smoothstep(196.5, 196.9, uTime);
   vec2 p = (vUv - 0.5) * fall; p.x *= uAspect;
   float r = length(p);
   float ang = atan(p.y,p.x);
@@ -68,8 +71,10 @@ void main(){
   float swirl = 0.5+0.5*sin(ang*6.0 + spin - rT*34.0 + noise(vec2(ang*3.0,uTime*0.4))*3.0);
   float hot = 0.5+0.5*sin(ang*3.0 - uTime*1.7);
   vec3 hotCol = mix(vec3(1.0,0.9,0.6), vec3(1.0,0.6,0.9), uProgress*0.6);
+  hotCol = mix(hotCol, vec3(1.0,0.95,0.80), reveal*0.5);         // after the revelation the fire pales
+  vec3 ringBase = mix(vec3(0.9,0.35,0.08), vec3(0.95,0.82,0.55), reveal*0.5); // ...toward something holy
   // spiral-arm structure: intensity rides the swirl so the disk keeps visible turbulence
-  col += mix(vec3(0.9,0.35,0.08), hotCol, swirl) * ring * (0.85 + 0.6*hot + 0.45*uProgress) * (0.55+0.45*swirl);
+  col += mix(ringBase, hotCol, swirl) * ring * (0.85 + 0.6*hot + 0.45*uProgress) * (0.55+0.45*swirl);
 
   // pulsing lens halo, widening as the pull strengthens
   float halo = smoothstep(0.5+0.2*uProgress,0.2,r)*0.15*(0.6+0.4*sin(uTime*0.8));
@@ -120,16 +125,20 @@ void main(){
   float overTop = smoothstep(0.055,0.0, abs(r-(core+0.06))) * smoothstep(-0.1,0.5, p.y/max(r,1e-3));
   col += vec3(1.0,0.82,0.55) * overTop * 0.45 * (1.0-0.9*nad);
 
-  // THE OPHANIM — the void has a face. Two counter-rotating wheels of eyes around the
-  // horizon, waking as we come closer. It does not attack. It only watches.
+  // THE OPHANIM — the void has a face. Wheels of eyes around the horizon: they wake
+  // one by one, subtle... until the revelation snaps every eye open at once.
+  // It does not attack. It only watches.
   {
     float oph = smoothstep(0.25,0.65,uProgress) * (1.0 - smoothstep(0.93,1.0,uProgress));
+    oph = mix(oph*0.35, max(oph, 0.75), reveal);         // hints before; undeniable after
     oph *= 1.0 - 0.85*nad;                               // in the nadir even the eyes close
     if (oph > 0.003){
-      for (int ringI=0; ringI<2; ringI++){
+      for (int ringI=0; ringI<3; ringI++){
         float fr = float(ringI);
+        float wheelA = (fr<1.5) ? 1.0 : 0.55*reveal;     // the third, outer wheel only exists after
+        if (wheelA < 0.01) continue;
         float rr = core + 0.075 + 0.055*fr;              // wheels hugging the horizon
-        float rotA = uTime*(0.045+0.03*fr) * ((fr<0.5)?1.0:-1.0);
+        float rotA = uTime*(0.045+0.03*fr) * ((mod(fr,2.0)<1.0)?1.0:-1.0);
         float N = 9.0 + 4.0*fr;                          // sparse — uncanny, not a swarm
         float cell = floor((ang + rotA)/6.2831*N + 0.5); // nearest eye slot on the wheel
         float ca2 = cell/N*6.2831 - rotA;                // its centre angle in world space
@@ -137,18 +146,23 @@ void main(){
         vec2 tangent = vec2(-sin(ca2), cos(ca2));
         vec2 radial  = vec2(cos(ca2), sin(ca2));
         vec2 lp2 = vec2(dot(p-ec,tangent), dot(p-ec,radial));
-        // each eye wakes on its own slow clock; all of them are open near the end
+        // each eye wakes on its own slow clock — until the revelation opens ALL of them
         float open = smoothstep(0.25,0.75, oph*(0.6+0.5*sin(uTime*0.37 + hash(vec2(cell,fr+31.0))*6.2831)));
+        open = mix(open, 1.0, reveal);
         float eyeD = length(lp2/vec2(0.014, 0.008*open + 1e-4));
-        float eyeM = smoothstep(1.0,0.75,eyeD) * oph;
+        float eyeM = smoothstep(1.0,0.75,eyeD) * oph * wheelA;
         // and every pupil looks INWARD — at what the void is swallowing
         vec2 pup = lp2 + vec2(0.0, 0.0035*open);         // radially inward in the local frame
-        col = mix(col, vec3(0.80,0.76,0.68)*(0.25+0.55*open), eyeM*0.6);
+        col = mix(col, vec3(0.80,0.76,0.68)*(0.25+0.55*open), eyeM*mix(0.6,0.9,reveal));
         col = mix(col, vec3(0.75,0.45,0.20), smoothstep(0.0050,0.0034,length(pup))*eyeM*0.9); // amber iris
         col = mix(col, vec3(0.0),            smoothstep(0.0026,0.0016,length(pup))*eyeM);     // black pupil
-        col += vec3(0.7,0.6,0.45) * smoothstep(0.12,0.0,abs(eyeD-1.0)) * eyeM * 0.06;         // faint lid glow
-        col += vec3(0.4,0.32,0.25) * smoothstep(0.0016,0.0,abs(r-rr)) * oph * 0.3;            // the hairline wheel binding them
+        col += vec3(0.9,0.8,0.6) * smoothstep(0.12,0.0,abs(eyeD-1.0)) * eyeM * mix(0.06,0.14,reveal); // lid glow
+        col += vec3(0.4,0.32,0.25) * smoothstep(0.0016,0.0,abs(r-rr)) * oph * wheelA * mix(0.3,0.6,reveal); // the wheel binding them
       }
+      // the moment itself: a golden shockwave rolls out as the eyes open
+      float sinceR = max(0.0, uTime - 196.76);
+      col += vec3(1.0,0.85,0.55) * smoothstep(0.02,0.0, abs(r - (core+0.05+sinceR*0.45)))
+           * exp(-sinceR*1.8) * step(0.001, sinceR);
     }
   }
 

@@ -19,7 +19,7 @@ void main(){
   // near-healed stretches (the Gate, the quiet intro) don't get their clean edges
   // chewed into blocky notches by residual displacement.
   float band = step(0.5, noise(vec2(floor(uv.y*40.0), floor(uTime*12.0))));
-  uv.x += (band-0.5) * 0.06 * c * smoothstep(0.06, 0.22, c);
+  uv.x += (band-0.5) * 0.045 * c * smoothstep(0.06, 0.22, c);
 
   // datamosh: rectangular blocks jump + smear at high corruption, stuttering in steps.
   // Engages above ~0.7 so calm stretches stay clean; intensity climbs to the peak.
@@ -28,7 +28,7 @@ void main(){
     float step1 = floor(uTime*14.0);                 // quantized time -> stutter, not slide
     vec2 grid = floor(uv * vec2(14.0, 9.0));
     float bsel = hash(grid + step1*3.1);
-    if (bsel > 1.0 - 0.55*dm){                        // only some blocks glitch each step
+    if (bsel > 1.0 - 0.40*dm){                        // only some blocks glitch each step
       vec2 jump = (vec2(hash(grid+step1), hash(grid+step1+7.0)) - 0.5);
       uv += jump * vec2(0.10, 0.05) * dm;             // block displacement
       uv.x += (hash(vec2(grid.y, step1)) - 0.5) * 0.04 * dm; // horizontal smear within row
